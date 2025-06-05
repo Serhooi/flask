@@ -3,11 +3,9 @@ import sys
 # DON'T CHANGE THIS !!!
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from flask import Flask, send_from_directory, request, jsonify
+from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
-from src.models.user import db as user_db
-from src.models.database import db
-from src.routes.user import user_bp
+from src.models.database import Database
 from src.routes.templates import templates_bp
 from src.routes.carousel import carousel_bp
 from src.routes.admin import admin_bp
@@ -37,7 +35,6 @@ CORS(app, resources={
 })
 
 # Register blueprints
-app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(templates_bp, url_prefix='/api')
 app.register_blueprint(carousel_bp, url_prefix='/api')
 app.register_blueprint(admin_bp, url_prefix='/api')

@@ -153,8 +153,7 @@ def upload_template():
         
         # ✅ SAVE TO DATABASE WITH ERROR HANDLING
         try:
-            db.create_template(
-                id=template_id,
+            template_id = db.create_template(
                 name=name,
                 category=category,
                 template_type=template_type,
