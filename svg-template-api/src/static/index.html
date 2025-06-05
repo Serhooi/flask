@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SVG Template API - Integration Ready</title>
+    <title>SVG Template API - Complete System</title>
     <style>
         * {
             margin: 0;
@@ -19,7 +19,7 @@
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 2rem;
         }
@@ -41,38 +41,81 @@
             opacity: 0.9;
         }
         
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: 15px 15px 0 0;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 1rem 2rem;
+            background: #f8f9fa;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .tab.active {
+            background: white;
+            color: #667eea;
+        }
+        
+        .tab:hover {
+            background: #e9ecef;
+        }
+        
+        .tab.active:hover {
+            background: white;
+        }
+        
+        .tab-content {
+            background: white;
+            border-radius: 0 0 15px 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            min-height: 600px;
+        }
+        
+        .tab-panel {
+            display: none;
+        }
+        
+        .tab-panel.active {
+            display: block;
+        }
+        
+        /* API Documentation Styles */
         .api-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
             gap: 2rem;
-            margin-bottom: 3rem;
         }
         
         .api-card {
-            background: white;
-            border-radius: 15px;
-            padding: 2rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            transition: transform 0.3s ease;
-        }
-        
-        .api-card:hover {
-            transform: translateY(-5px);
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            border-left: 4px solid #667eea;
         }
         
         .api-card h3 {
             color: #667eea;
             margin-bottom: 1rem;
-            font-size: 1.5rem;
+            font-size: 1.3rem;
         }
         
         .endpoint {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 1rem;
+            background: white;
+            border-radius: 6px;
+            padding: 0.8rem;
             margin: 0.5rem 0;
             font-family: 'Courier New', monospace;
-            border-left: 4px solid #667eea;
+            font-size: 0.9rem;
         }
         
         .method {
@@ -86,214 +129,758 @@
         
         .get { background: #28a745; color: white; }
         .post { background: #007bff; color: white; }
+        .put { background: #ffc107; color: black; }
+        .delete { background: #dc3545; color: white; }
         
-        .features {
-            background: white;
-            border-radius: 15px;
-            padding: 2rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        /* Admin Panel Styles */
+        .admin-section {
             margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #28a745;
         }
         
-        .features h2 {
-            color: #667eea;
-            margin-bottom: 1.5rem;
-            text-align: center;
-        }
-        
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-        }
-        
-        .feature {
-            text-align: center;
-            padding: 1rem;
-        }
-        
-        .feature-icon {
-            font-size: 3rem;
+        .admin-section h3 {
+            color: #28a745;
             margin-bottom: 1rem;
         }
         
-        .integration-info {
-            background: white;
-            border-radius: 15px;
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
             padding: 2rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            background: white;
+            transition: all 0.3s ease;
+            cursor: pointer;
         }
         
-        .integration-info h2 {
-            color: #667eea;
-            margin-bottom: 1.5rem;
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
         }
         
-        .code-block {
-            background: #2d3748;
-            color: #e2e8f0;
-            padding: 1.5rem;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            overflow-x: auto;
-            margin: 1rem 0;
+        .upload-area.dragover {
+            border-color: #28a745;
+            background: #f8fff8;
         }
         
-        .status-badge {
-            display: inline-block;
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        
+        .btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a6fd8;
+        }
+        
+        .btn-success {
             background: #28a745;
             color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        /* Templates Grid */
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .template-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease;
+        }
+        
+        .template-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .template-preview {
+            width: 100%;
+            height: 150px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+        
+        .template-info h4 {
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        
+        .template-meta {
             font-size: 0.9rem;
-            margin: 0.5rem 0;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+        
+        .template-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-sm {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+        }
+        
+        /* Status Messages */
+        .alert {
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        /* Loading Spinner */
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .tabs {
+                flex-direction: column;
+            }
+            
+            .api-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .templates-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚀 SVG Template API</h1>
-            <p>Ready for React Integration • Templates • Carousels • Authentication</p>
-            <div class="status-badge">✅ Production Ready</div>
+            <h1>🎨 SVG Template API</h1>
+            <p>Complete System with Database & Admin Panel</p>
         </div>
         
-        <div class="features">
-            <h2>🎯 Integrated Features</h2>
-            <div class="feature-grid">
-                <div class="feature">
-                    <div class="feature-icon">📋</div>
-                    <h3>Template Management</h3>
-                    <p>Flyers & Quick Posts with categories</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">🎠</div>
-                    <h3>Carousel Generation</h3>
-                    <p>Main + Photo templates logic</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">🔐</div>
-                    <h3>Authentication</h3>
-                    <p>Bearer token support</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">🌐</div>
-                    <h3>Permanent URLs</h3>
-                    <p>Direct image links</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">🔄</div>
-                    <h3>Auto Text Wrap</h3>
-                    <p>Address & text handling</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">⚡</div>
-                    <h3>Async Processing</h3>
-                    <p>Background generation</p>
-                </div>
-            </div>
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('api')">📚 API Documentation</button>
+            <button class="tab" onclick="showTab('admin')">⚙️ Admin Panel</button>
+            <button class="tab" onclick="showTab('templates')">🖼️ Templates</button>
+            <button class="tab" onclick="showTab('test')">🧪 Test API</button>
         </div>
         
-        <div class="api-grid">
-            <div class="api-card">
-                <h3>📋 Template Endpoints</h3>
-                <div class="endpoint">
-                    <span class="method get">GET</span>/api/templates/flyers
-                </div>
-                <div class="endpoint">
-                    <span class="method get">GET</span>/api/templates/quick-posts
-                </div>
-                <div class="endpoint">
-                    <span class="method get">GET</span>/api/templates/categories
-                </div>
-                <div class="endpoint">
-                    <span class="method get">GET</span>/api/templates/{id}
+        <div class="tab-content">
+            <!-- API Documentation Tab -->
+            <div id="api-tab" class="tab-panel active">
+                <h2 style="color: #667eea; margin-bottom: 2rem;">API Endpoints</h2>
+                
+                <div class="api-grid">
+                    <div class="api-card">
+                        <h3>Templates</h3>
+                        <div class="endpoint">
+                            <span class="method get">GET</span>
+                            /api/templates/flyers
+                        </div>
+                        <div class="endpoint">
+                            <span class="method get">GET</span>
+                            /api/templates/quick-posts
+                        </div>
+                        <div class="endpoint">
+                            <span class="method get">GET</span>
+                            /api/templates/categories
+                        </div>
+                        <div class="endpoint">
+                            <span class="method get">GET</span>
+                            /api/templates/{id}
+                        </div>
+                    </div>
+                    
+                    <div class="api-card">
+                        <h3>Carousel</h3>
+                        <div class="endpoint">
+                            <span class="method post">POST</span>
+                            /api/carousel
+                        </div>
+                        <div class="endpoint">
+                            <span class="method post">POST</span>
+                            /api/carousel/{id}/generate
+                        </div>
+                        <div class="endpoint">
+                            <span class="method get">GET</span>
+                            /api/carousel/{id}/slides
+                        </div>
+                        <div class="endpoint">
+                            <span class="method get">GET</span>
+                            /api/carousel/{id}/status
+                        </div>
+                    </div>
+                    
+                    <div class="api-card">
+                        <h3>Admin</h3>
+                        <div class="endpoint">
+                            <span class="method post">POST</span>
+                            /api/admin/upload-template
+                        </div>
+                        <div class="endpoint">
+                            <span class="method get">GET</span>
+                            /api/admin/templates
+                        </div>
+                        <div class="endpoint">
+                            <span class="method put">PUT</span>
+                            /api/admin/templates/{id}
+                        </div>
+                        <div class="endpoint">
+                            <span class="method delete">DELETE</span>
+                            /api/admin/templates/{id}
+                        </div>
+                    </div>
+                    
+                    <div class="api-card">
+                        <h3>System</h3>
+                        <div class="endpoint">
+                            <span class="method get">GET</span>
+                            /api/health
+                        </div>
+                        <div class="endpoint">
+                            <span class="method get">GET</span>
+                            /api/admin/stats
+                        </div>
+                    </div>
                 </div>
             </div>
             
-            <div class="api-card">
-                <h3>🎠 Carousel Endpoints</h3>
-                <div class="endpoint">
-                    <span class="method post">POST</span>/api/carousel
+            <!-- Admin Panel Tab -->
+            <div id="admin-tab" class="tab-panel">
+                <h2 style="color: #28a745; margin-bottom: 2rem;">Admin Panel</h2>
+                
+                <div class="admin-section">
+                    <h3>📤 Upload New Template</h3>
+                    <form id="upload-form" enctype="multipart/form-data">
+                        <div class="upload-area" id="upload-area">
+                            <p>📁 Drag & Drop SVG file here or click to select</p>
+                            <input type="file" id="svg-file" accept=".svg" style="display: none;">
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                            <div class="form-group">
+                                <label for="template-name">Template Name</label>
+                                <input type="text" id="template-name" placeholder="e.g., Modern Open House" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="template-category">Category</label>
+                                <select id="template-category" required>
+                                    <option value="">Select Category</option>
+                                    <option value="open-house">Open House</option>
+                                    <option value="sold">Sold</option>
+                                    <option value="for-rent">For Rent</option>
+                                    <option value="lease">Lease</option>
+                                    <option value="quick-post">Quick Post</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="template-type">Template Type</label>
+                            <select id="template-type" required>
+                                <option value="main">Main Template (with all info)</option>
+                                <option value="photo">Photo Template (photos only)</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success">
+                            <span id="upload-text">🚀 Upload Template</span>
+                            <div id="upload-spinner" class="spinner hidden"></div>
+                        </button>
+                    </form>
+                    
+                    <div id="upload-result"></div>
                 </div>
-                <div class="endpoint">
-                    <span class="method post">POST</span>/api/carousel/{id}/generate
-                </div>
-                <div class="endpoint">
-                    <span class="method get">GET</span>/api/carousel/{id}/slides
-                </div>
-                <div class="endpoint">
-                    <span class="method get">GET</span>/api/carousel/{id}/status
+                
+                <div class="admin-section">
+                    <h3>📊 System Statistics</h3>
+                    <div id="stats-container">
+                        <div class="spinner"></div>
+                    </div>
                 </div>
             </div>
             
-            <div class="api-card">
-                <h3>🔧 System Endpoints</h3>
-                <div class="endpoint">
-                    <span class="method get">GET</span>/api/health
+            <!-- Templates Tab -->
+            <div id="templates-tab" class="tab-panel">
+                <h2 style="color: #667eea; margin-bottom: 2rem;">Template Library</h2>
+                
+                <div style="margin-bottom: 1rem;">
+                    <button class="btn btn-primary" onclick="loadTemplates()">🔄 Refresh Templates</button>
+                    <select id="category-filter" onchange="filterTemplates()" style="margin-left: 1rem; padding: 0.5rem;">
+                        <option value="">All Categories</option>
+                        <option value="open-house">Open House</option>
+                        <option value="sold">Sold</option>
+                        <option value="for-rent">For Rent</option>
+                        <option value="lease">Lease</option>
+                        <option value="quick-post">Quick Post</option>
+                    </select>
                 </div>
-                <div class="endpoint">
-                    <span class="method get">GET</span>/api/carousels
+                
+                <div id="templates-container">
+                    <div class="spinner"></div>
                 </div>
             </div>
-        </div>
-        
-        <div class="integration-info">
-            <h2>🔗 React Integration Example</h2>
-            <p>Your polling workflow implementation:</p>
             
-            <div class="code-block">
-// 1. Create carousel
-const carousel = await fetch('/api/carousel', {
-  method: 'POST',
-  headers: {
-    'Authorization': 'Bearer your-token',
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({ name: 'Property Carousel' })
-});
-
-// 2. Start generation
-await fetch(`/api/carousel/${carouselId}/generate`, {
-  method: 'POST',
-  body: JSON.stringify({
-    slides: [
-      {
-        templateId: 'main-template-id',
-        replacements: { 'dyno.agentName': 'John', ... }
-      },
-      {
-        templateId: 'photo-template-id', 
-        replacements: { 'dyno.propertyImage': '...' }
+            <!-- Test API Tab -->
+            <div id="test-tab" class="tab-panel">
+                <h2 style="color: #667eea; margin-bottom: 2rem;">Test API</h2>
+                
+                <div class="admin-section">
+                    <h3>🧪 Test Carousel Creation</h3>
+                    <textarea id="test-json" rows="10" style="width: 100%; padding: 1rem; border: 1px solid #ddd; border-radius: 6px; font-family: monospace;">
+{
+  "name": "Test Property Carousel",
+  "slides": [
+    {
+      "templateId": "open-house-main",
+      "replacements": {
+        "dyno.agentName": "John Smith",
+        "dyno.price": "$750,000",
+        "dyno.address": "123 Luxury Lane Beverly Hills, CA",
+        "dyno.bedrooms": "4",
+        "dyno.bathrooms": "3"
       }
-    ]
-  })
-});
-
-// 3. Poll for results
-const slides = await fetch(`/api/carousel/${carouselId}/slides`);
+    },
+    {
+      "templateId": "open-house-photo",
+      "replacements": {
+        "dyno.propertyImage": "https://example.com/photo1.jpg"
+      }
+    }
+  ]
+}
+                    </textarea>
+                    <button class="btn btn-primary" onclick="testCarousel()">🚀 Test Carousel</button>
+                    <div id="test-result"></div>
+                </div>
             </div>
-            
-            <h3>✅ Template Categories Available:</h3>
-            <ul style="margin: 1rem 0; padding-left: 2rem;">
-                <li><strong>Open House</strong> - Main & Photo templates</li>
-                <li><strong>Sold</strong> - Main & Photo templates</li>
-                <li><strong>For Rent</strong> - Main & Photo templates</li>
-                <li><strong>Lease</strong> - Main & Photo templates</li>
-                <li><strong>Quick Posts</strong> - Single templates</li>
-            </ul>
-            
-            <h3>🎯 Perfect Match for Your Architecture:</h3>
-            <ul style="margin: 1rem 0; padding-left: 2rem;">
-                <li>✅ Permanent URLs (not temporary)</li>
-                <li>✅ Bearer token authentication</li>
-                <li>✅ Polling-friendly async processing</li>
-                <li>✅ Main + Photo template logic</li>
-                <li>✅ Category-based template organization</li>
-                <li>✅ Ready for Render.com deployment</li>
-            </ul>
         </div>
     </div>
+
+    <script>
+        // Tab functionality
+        function showTab(tabName) {
+            // Hide all tab panels
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab panel
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+            
+            // Load data for specific tabs
+            if (tabName === 'templates') {
+                loadTemplates();
+            } else if (tabName === 'admin') {
+                loadStats();
+            }
+        }
+        
+        // Upload functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const uploadArea = document.getElementById('upload-area');
+            const fileInput = document.getElementById('svg-file');
+            const uploadForm = document.getElementById('upload-form');
+            
+            // Click to select file
+            uploadArea.addEventListener('click', () => fileInput.click());
+            
+            // Drag and drop
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    updateUploadArea(files[0]);
+                }
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    updateUploadArea(e.target.files[0]);
+                }
+            });
+            
+            // Form submission
+            uploadForm.addEventListener('submit', uploadTemplate);
+        });
+        
+        function updateUploadArea(file) {
+            const uploadArea = document.getElementById('upload-area');
+            uploadArea.innerHTML = `<p>✅ Selected: ${file.name}</p>`;
+        }
+        
+        async function uploadTemplate(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('svg-file');
+            const name = document.getElementById('template-name').value;
+            const category = document.getElementById('template-category').value;
+            const templateType = document.getElementById('template-type').value;
+            
+            if (!fileInput.files[0]) {
+                showAlert('Please select an SVG file', 'error');
+                return;
+            }
+            
+            formData.append('file', fileInput.files[0]);
+            formData.append('name', name);
+            formData.append('category', category);
+            formData.append('template_type', templateType);
+            
+            // Show loading
+            document.getElementById('upload-text').style.display = 'none';
+            document.getElementById('upload-spinner').classList.remove('hidden');
+            
+            try {
+                const response = await fetch('/api/admin/upload-template', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Template uploaded successfully!', 'success');
+                    document.getElementById('upload-form').reset();
+                    document.getElementById('upload-area').innerHTML = '<p>📁 Drag & Drop SVG file here or click to select</p>';
+                } else {
+                    showAlert(result.error || 'Upload failed', 'error');
+                }
+            } catch (error) {
+                showAlert('Upload failed: ' + error.message, 'error');
+            } finally {
+                // Hide loading
+                document.getElementById('upload-text').style.display = 'inline';
+                document.getElementById('upload-spinner').classList.add('hidden');
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/admin/stats');
+                const data = await response.json();
+                
+                const statsContainer = document.getElementById('stats-container');
+                statsContainer.innerHTML = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        <div style="background: white; padding: 1rem; border-radius: 8px; text-align: center;">
+                            <h4 style="color: #667eea;">Total Templates</h4>
+                            <p style="font-size: 2rem; font-weight: bold;">${data.total_templates}</p>
+                        </div>
+                        <div style="background: white; padding: 1rem; border-radius: 8px; text-align: center;">
+                            <h4 style="color: #28a745;">Categories</h4>
+                            <p style="font-size: 2rem; font-weight: bold;">${Object.keys(data.categories).length}</p>
+                        </div>
+                        <div style="background: white; padding: 1rem; border-radius: 8px; text-align: center;">
+                            <h4 style="color: #ffc107;">Main Templates</h4>
+                            <p style="font-size: 2rem; font-weight: bold;">${data.template_types.main || 0}</p>
+                        </div>
+                        <div style="background: white; padding: 1rem; border-radius: 8px; text-align: center;">
+                            <h4 style="color: #17a2b8;">Photo Templates</h4>
+                            <p style="font-size: 2rem; font-weight: bold;">${data.template_types.photo || 0}</p>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('stats-container').innerHTML = '<p>Failed to load stats</p>';
+            }
+        }
+        
+        async function loadTemplates() {
+            const container = document.getElementById('templates-container');
+            container.innerHTML = '<div class="spinner"></div>';
+            
+            try {
+                const response = await fetch('/api/admin/templates');
+                const data = await response.json();
+                
+                if (data.templates && data.templates.length > 0) {
+                    container.innerHTML = `
+                        <div class="templates-grid">
+                            ${data.templates.map(template => `
+                                <div class="template-card">
+                                    <div class="template-preview">
+                                        ${template.preview_url ? 
+                                            `<img src="${template.preview_url}" alt="Preview" style="max-width: 100%; max-height: 100%; object-fit: contain;">` :
+                                            '🖼️ No Preview'
+                                        }
+                                    </div>
+                                    <div class="template-info">
+                                        <h4>${template.name}</h4>
+                                        <div class="template-meta">
+                                            <span style="background: #667eea; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">
+                                                ${template.category}
+                                            </span>
+                                            <span style="background: #28a745; color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; margin-left: 0.5rem;">
+                                                ${template.template_type}
+                                            </span>
+                                        </div>
+                                        <div class="template-meta">
+                                            Size: ${(template.svg_size / 1024).toFixed(1)} KB
+                                        </div>
+                                        <div class="template-actions">
+                                            <button class="btn btn-primary btn-sm" onclick="viewTemplate('${template.id}')">View</button>
+                                            <button class="btn btn-danger btn-sm" onclick="deleteTemplate('${template.id}')">Delete</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '<p>No templates found. Upload some templates in the Admin Panel.</p>';
+                }
+            } catch (error) {
+                container.innerHTML = '<p>Failed to load templates</p>';
+            }
+        }
+        
+        function filterTemplates() {
+            const filter = document.getElementById('category-filter').value;
+            const cards = document.querySelectorAll('.template-card');
+            
+            cards.forEach(card => {
+                const category = card.querySelector('.template-meta span').textContent;
+                if (!filter || category === filter) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+        
+        async function deleteTemplate(templateId) {
+            if (!confirm('Are you sure you want to delete this template?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/templates/${templateId}`, {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Template deleted successfully!', 'success');
+                    loadTemplates();
+                } else {
+                    showAlert(result.error || 'Delete failed', 'error');
+                }
+            } catch (error) {
+                showAlert('Delete failed: ' + error.message, 'error');
+            }
+        }
+        
+        async function testCarousel() {
+            const testJson = document.getElementById('test-json').value;
+            const resultDiv = document.getElementById('test-result');
+            
+            try {
+                const data = JSON.parse(testJson);
+                
+                // Create carousel
+                const response = await fetch('/api/carousel', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h4>✅ Carousel Created Successfully!</h4>
+                            <p><strong>Carousel ID:</strong> ${result.carousel_id}</p>
+                            <p><strong>Slides:</strong> ${result.slides_count}</p>
+                            <button class="btn btn-primary" onclick="generateCarousel('${result.carousel_id}')">Generate Images</button>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-error">
+                            <h4>❌ Error</h4>
+                            <p>${result.error}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <h4>❌ Error</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function generateCarousel(carouselId) {
+            try {
+                const response = await fetch(`/api/carousel/${carouselId}/generate`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Carousel generation started! Check status in a few moments.', 'info');
+                } else {
+                    showAlert(result.error || 'Generation failed', 'error');
+                }
+            } catch (error) {
+                showAlert('Generation failed: ' + error.message, 'error');
+            }
+        }
+        
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type}`;
+            alertDiv.innerHTML = message;
+            
+            // Find the appropriate container
+            const activeTab = document.querySelector('.tab-panel.active');
+            const resultContainer = activeTab.querySelector('#upload-result') || 
+                                  activeTab.querySelector('#test-result') || 
+                                  activeTab;
+            
+            if (resultContainer.id === 'upload-result' || resultContainer.id === 'test-result') {
+                resultContainer.innerHTML = '';
+                resultContainer.appendChild(alertDiv);
+            } else {
+                resultContainer.insertBefore(alertDiv, resultContainer.firstChild);
+            }
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.parentNode.removeChild(alertDiv);
+                }
+            }, 5000);
+        }
+        
+        // Load initial data
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStats();
+        });
+    </script>
 </body>
 </html>
 

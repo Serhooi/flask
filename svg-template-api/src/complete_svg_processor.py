@@ -367,3 +367,37 @@ def test_complete_processor():
 if __name__ == "__main__":
     test_complete_processor()
 
+
+    @staticmethod
+    def process_svg_content(svg_content: str, replacements: Dict[str, str], canvas_width: int = 1080) -> Dict:
+        """
+        Статический метод для обработки SVG контента напрямую
+        Используется для обработки шаблонов из базы данных
+        """
+        try:
+            # Создаем временный экземпляр процессора
+            processor = CompleteSVGProcessor(svg_content, canvas_width)
+            
+            # Применяем замены
+            for field, value in replacements.items():
+                if field.startswith('dyno.'):
+                    dyno_field = field[5:]  # Убираем префикс "dyno."
+                    processor.replace_field(dyno_field, value)
+                else:
+                    # Если поле не начинается с dyno., добавляем префикс
+                    processor.replace_field(field, value)
+            
+            # Возвращаем результат
+            return {
+                'success': True,
+                'svg_content': processor.get_processed_svg(),
+                'message': 'SVG processed successfully'
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Failed to process SVG content: {str(e)}',
+                'svg_content': svg_content  # Возвращаем оригинал в случае ошибки
+            }
+

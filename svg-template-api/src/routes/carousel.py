@@ -6,252 +6,294 @@ from datetime import datetime
 import threading
 import time
 from src.complete_svg_processor import CompleteSVGProcessor
+from src.models.database import db
 
 carousel_bp = Blueprint('carousel', __name__)
 
-# In-memory storage for carousel data (in production, use Redis or database)
-CAROUSEL_STORAGE = {}
-CAROUSEL_STATUS = {}
+# In-memory storage for processing status (in production, use Redis)
+PROCESSING_STATUS = {}
 
-def generate_carousel_async(carousel_id, carousel_data):
+def generate_carousel_async(carousel_id):
     """Background task to generate carousel slides"""
     try:
-        CAROUSEL_STATUS[carousel_id] = "processing"
+        PROCESSING_STATUS[carousel_id] = "processing"
+        
+        # Get carousel from database
+        carousel = db.get_carousel(carousel_id)
+        if not carousel:
+            PROCESSING_STATUS[carousel_id] = "failed"
+            return
+        
+        # Get slides for this carousel
+        slides = db.get_carousel_slides(carousel_id)
+        if not slides:
+            PROCESSING_STATUS[carousel_id] = "failed"
+            return
         
         processor = CompleteSVGProcessor()
-        slides = []
         
-        for i, slide_data in enumerate(carousel_data['slides']):
-            # Load the appropriate template
-            template_id = slide_data['templateId']
-            svg_file = "post(9).svg"  # For now, using the same template
-            
-            # Process the slide
-            result = processor.process_svg_complete(
-                svg_file=svg_file,
-                replacements=slide_data['replacements'],
-                canvas_width=carousel_data.get('canvas_width', 1080)
-            )
-            
-            if result['success']:
-                slide_url = f"https://api.yoursite.com/images/carousel-{carousel_id}-slide-{i+1}.png"
-                slides.append({
-                    "slide_number": i + 1,
-                    "template_id": template_id,
-                    "url": slide_url,
-                    "status": "completed"
-                })
-            else:
-                slides.append({
-                    "slide_number": i + 1,
-                    "template_id": template_id,
-                    "url": None,
-                    "status": "failed",
-                    "error": result.get('error', 'Unknown error')
-                })
+        for slide in slides:
+            try:
+                # Get template from database
+                template = db.get_template_by_id(slide['template_id'])
+                if not template:
+                    continue
+                
+                # Parse replacements
+                replacements = json.loads(slide['replacements']) if slide['replacements'] else {}
+                
+                # Process the slide using SVG content from database
+                result = processor.process_svg_content(
+                    svg_content=template['svg_content'],
+                    replacements=replacements,
+                    canvas_width=1080
+                )
+                
+                if result['success']:
+                    # Generate permanent URL for the slide
+                    slide_url = f"https://svg-template-api.onrender.com/api/carousel/{carousel_id}/slide/{slide['slide_number']}.png"
+                    
+                    # Update slide with image URL
+                    db.update_slide_image_url(slide['id'], slide_url)
+                    
+                else:
+                    print(f"Failed to process slide {slide['slide_number']}: {result.get('error', 'Unknown error')}")
+                    
+            except Exception as e:
+                print(f"Error processing slide {slide['slide_number']}: {str(e)}")
+                continue
         
-        # Update carousel data
-        CAROUSEL_STORAGE[carousel_id]['slides'] = slides
-        CAROUSEL_STORAGE[carousel_id]['status'] = "completed"
-        CAROUSEL_STORAGE[carousel_id]['completed_at'] = datetime.utcnow().isoformat()
-        CAROUSEL_STATUS[carousel_id] = "completed"
+        # Update carousel status
+        db.update_carousel_status(carousel_id, "completed")
+        PROCESSING_STATUS[carousel_id] = "completed"
         
     except Exception as e:
-        CAROUSEL_STATUS[carousel_id] = "failed"
-        CAROUSEL_STORAGE[carousel_id]['status'] = "failed"
-        CAROUSEL_STORAGE[carousel_id]['error'] = str(e)
+        print(f"Error in generate_carousel_async: {str(e)}")
+        db.update_carousel_status(carousel_id, "failed")
+        PROCESSING_STATUS[carousel_id] = "failed"
 
 @carousel_bp.route('/carousel', methods=['POST'])
 def create_carousel():
     """Create a new carousel"""
-    
-    data = request.get_json()
-    
-    # Validate required fields
-    if not data or 'name' not in data:
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        # Validate required fields
+        if 'name' not in data:
+            return jsonify({"error": "Carousel name is required"}), 400
+        
+        if 'slides' not in data or not data['slides']:
+            return jsonify({"error": "At least one slide is required"}), 400
+        
+        # Create carousel in database
+        carousel_id = db.create_carousel(data['name'])
+        
+        # Create slides
+        for i, slide_data in enumerate(data['slides']):
+            if 'templateId' not in slide_data:
+                return jsonify({"error": f"Template ID is required for slide {i+1}"}), 400
+            
+            # Verify template exists
+            template = db.get_template_by_id(slide_data['templateId'])
+            if not template:
+                return jsonify({"error": f"Template {slide_data['templateId']} not found"}), 404
+            
+            # Create slide in database
+            replacements_json = json.dumps(slide_data.get('replacements', {}))
+            db.create_carousel_slide(
+                carousel_id=carousel_id,
+                template_id=slide_data['templateId'],
+                slide_number=i + 1,
+                replacements=replacements_json
+            )
+        
         return jsonify({
-            "success": False,
-            "error": "Missing required field: name"
-        }), 400
-    
-    # Generate unique carousel ID
-    carousel_id = str(uuid.uuid4())
-    
-    # Store carousel data
-    carousel_data = {
-        "id": carousel_id,
-        "name": data['name'],
-        "status": "created",
-        "created_at": datetime.utcnow().isoformat(),
-        "slides": [],
-        "canvas_width": data.get('canvas_width', 1080)
-    }
-    
-    CAROUSEL_STORAGE[carousel_id] = carousel_data
-    CAROUSEL_STATUS[carousel_id] = "created"
-    
-    return jsonify({
-        "success": True,
-        "carousel_id": carousel_id,
-        "status": "created",
-        "message": "Carousel created successfully"
-    })
+            "success": True,
+            "carousel_id": carousel_id,
+            "message": "Carousel created successfully",
+            "slides_count": len(data['slides'])
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to create carousel: {str(e)}"}), 500
 
 @carousel_bp.route('/carousel/<carousel_id>/generate', methods=['POST'])
 def generate_carousel(carousel_id):
     """Start carousel generation process"""
-    
-    if carousel_id not in CAROUSEL_STORAGE:
-        return jsonify({
-            "success": False,
-            "error": "Carousel not found"
-        }), 404
-    
-    data = request.get_json()
-    
-    # Validate slides data
-    if not data or 'slides' not in data or not data['slides']:
-        return jsonify({
-            "success": False,
-            "error": "Missing or empty slides data"
-        }), 400
-    
-    # Validate slide structure
-    for i, slide in enumerate(data['slides']):
-        if 'templateId' not in slide or 'replacements' not in slide:
+    try:
+        # Check if carousel exists
+        carousel = db.get_carousel(carousel_id)
+        if not carousel:
+            return jsonify({"error": "Carousel not found"}), 404
+        
+        # Check if already processing
+        if carousel_id in PROCESSING_STATUS and PROCESSING_STATUS[carousel_id] == "processing":
             return jsonify({
-                "success": False,
-                "error": f"Slide {i+1} missing required fields: templateId, replacements"
-            }), 400
-    
-    # Update carousel with slides data
-    CAROUSEL_STORAGE[carousel_id]['slides_data'] = data['slides']
-    CAROUSEL_STORAGE[carousel_id]['canvas_width'] = data.get('canvas_width', 1080)
-    CAROUSEL_STORAGE[carousel_id]['status'] = "generating"
-    CAROUSEL_STATUS[carousel_id] = "generating"
-    
-    # Start background generation
-    thread = threading.Thread(
-        target=generate_carousel_async,
-        args=(carousel_id, CAROUSEL_STORAGE[carousel_id])
-    )
-    thread.daemon = True
-    thread.start()
-    
-    return jsonify({
-        "success": True,
-        "carousel_id": carousel_id,
-        "status": "generating",
-        "message": "Carousel generation started",
-        "estimated_time": f"{len(data['slides']) * 2} seconds"
-    })
-
-@carousel_bp.route('/carousel/<carousel_id>/slides')
-def get_carousel_slides(carousel_id):
-    """Get carousel slides and their URLs"""
-    
-    if carousel_id not in CAROUSEL_STORAGE:
+                "success": True,
+                "message": "Carousel generation already in progress",
+                "status": "processing"
+            })
+        
+        # Update status to processing
+        db.update_carousel_status(carousel_id, "processing")
+        
+        # Start background generation
+        thread = threading.Thread(target=generate_carousel_async, args=(carousel_id,))
+        thread.daemon = True
+        thread.start()
+        
         return jsonify({
-            "success": False,
-            "error": "Carousel not found"
-        }), 404
-    
-    carousel = CAROUSEL_STORAGE[carousel_id]
-    status = CAROUSEL_STATUS.get(carousel_id, "unknown")
-    
-    response = {
-        "success": True,
-        "carousel_id": carousel_id,
-        "name": carousel['name'],
-        "status": status,
-        "created_at": carousel['created_at'],
-        "slides": carousel.get('slides', []),
-        "total_slides": len(carousel.get('slides', []))
-    }
-    
-    if status == "completed":
-        response['completed_at'] = carousel.get('completed_at')
-    elif status == "failed":
-        response['error'] = carousel.get('error')
-    
-    return jsonify(response)
+            "success": True,
+            "message": "Carousel generation started",
+            "carousel_id": carousel_id,
+            "status": "processing"
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to start generation: {str(e)}"}), 500
 
-@carousel_bp.route('/carousel/<carousel_id>/status')
+@carousel_bp.route('/carousel/<carousel_id>/slides', methods=['GET'])
+def get_carousel_slides(carousel_id):
+    """Get carousel slides with URLs"""
+    try:
+        # Check if carousel exists
+        carousel = db.get_carousel(carousel_id)
+        if not carousel:
+            return jsonify({"error": "Carousel not found"}), 404
+        
+        # Get slides from database
+        slides = db.get_carousel_slides(carousel_id)
+        
+        # Format response
+        formatted_slides = []
+        for slide in slides:
+            template = db.get_template_by_id(slide['template_id'])
+            
+            formatted_slides.append({
+                "slide_number": slide['slide_number'],
+                "template_id": slide['template_id'],
+                "template_name": template['name'] if template else "Unknown",
+                "url": slide['image_url'],
+                "status": "completed" if slide['image_url'] else "pending",
+                "created_at": slide['created_at']
+            })
+        
+        return jsonify({
+            "success": True,
+            "carousel_id": carousel_id,
+            "carousel_name": carousel['name'],
+            "status": carousel['status'],
+            "slides": formatted_slides,
+            "total_slides": len(formatted_slides)
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to get slides: {str(e)}"}), 500
+
+@carousel_bp.route('/carousel/<carousel_id>/status', methods=['GET'])
 def get_carousel_status(carousel_id):
     """Get carousel generation status"""
-    
-    if carousel_id not in CAROUSEL_STORAGE:
+    try:
+        # Check if carousel exists
+        carousel = db.get_carousel(carousel_id)
+        if not carousel:
+            return jsonify({"error": "Carousel not found"}), 404
+        
+        # Get processing status
+        processing_status = PROCESSING_STATUS.get(carousel_id, carousel['status'])
+        
+        # Get slides count
+        slides = db.get_carousel_slides(carousel_id)
+        completed_slides = len([s for s in slides if s['image_url']])
+        
         return jsonify({
-            "success": False,
-            "error": "Carousel not found"
-        }), 404
-    
-    carousel = CAROUSEL_STORAGE[carousel_id]
-    status = CAROUSEL_STATUS.get(carousel_id, "unknown")
-    
-    response = {
-        "success": True,
-        "carousel_id": carousel_id,
-        "status": status,
-        "created_at": carousel['created_at']
-    }
-    
-    if status == "generating":
-        # Calculate progress based on completed slides
-        total_slides = len(carousel.get('slides_data', []))
-        completed_slides = len([s for s in carousel.get('slides', []) if s.get('status') == 'completed'])
-        response['progress'] = {
-            "completed": completed_slides,
-            "total": total_slides,
-            "percentage": int((completed_slides / total_slides) * 100) if total_slides > 0 else 0
-        }
-    elif status == "completed":
-        response['completed_at'] = carousel.get('completed_at')
-        response['slides_count'] = len(carousel.get('slides', []))
-    elif status == "failed":
-        response['error'] = carousel.get('error')
-    
-    return jsonify(response)
+            "success": True,
+            "carousel_id": carousel_id,
+            "status": processing_status,
+            "total_slides": len(slides),
+            "completed_slides": completed_slides,
+            "progress": (completed_slides / len(slides) * 100) if slides else 0,
+            "created_at": carousel['created_at'],
+            "updated_at": carousel['updated_at']
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to get status: {str(e)}"}), 500
 
-@carousel_bp.route('/carousel/<carousel_id>')
+@carousel_bp.route('/carousel/<carousel_id>', methods=['GET'])
 def get_carousel_details(carousel_id):
-    """Get full carousel details"""
-    
-    if carousel_id not in CAROUSEL_STORAGE:
+    """Get detailed carousel information"""
+    try:
+        # Check if carousel exists
+        carousel = db.get_carousel(carousel_id)
+        if not carousel:
+            return jsonify({"error": "Carousel not found"}), 404
+        
+        # Get slides
+        slides = db.get_carousel_slides(carousel_id)
+        
+        # Format slides with template information
+        formatted_slides = []
+        for slide in slides:
+            template = db.get_template_by_id(slide['template_id'])
+            replacements = json.loads(slide['replacements']) if slide['replacements'] else {}
+            
+            formatted_slides.append({
+                "slide_number": slide['slide_number'],
+                "template_id": slide['template_id'],
+                "template_name": template['name'] if template else "Unknown",
+                "template_category": template['category'] if template else "Unknown",
+                "replacements": replacements,
+                "url": slide['image_url'],
+                "status": "completed" if slide['image_url'] else "pending"
+            })
+        
         return jsonify({
-            "success": False,
-            "error": "Carousel not found"
-        }), 404
-    
-    carousel = CAROUSEL_STORAGE[carousel_id]
-    status = CAROUSEL_STATUS.get(carousel_id, "unknown")
-    
-    return jsonify({
-        "success": True,
-        "carousel": {
-            **carousel,
-            "status": status
-        }
-    })
+            "success": True,
+            "carousel": {
+                "id": carousel['id'],
+                "name": carousel['name'],
+                "status": carousel['status'],
+                "created_at": carousel['created_at'],
+                "updated_at": carousel['updated_at'],
+                "slides": formatted_slides,
+                "total_slides": len(formatted_slides)
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to get carousel details: {str(e)}"}), 500
 
-@carousel_bp.route('/carousels')
+@carousel_bp.route('/carousel/<carousel_id>/slide/<int:slide_number>.png')
+def serve_slide_image(carousel_id, slide_number):
+    """Serve generated slide image"""
+    try:
+        # This would serve the actual generated image file
+        # For now, return a placeholder response
+        return jsonify({
+            "message": f"Slide {slide_number} for carousel {carousel_id}",
+            "note": "Image serving not implemented yet"
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to serve image: {str(e)}"}), 500
+
+@carousel_bp.route('/carousels', methods=['GET'])
 def list_carousels():
     """List all carousels"""
-    
-    carousels = []
-    for carousel_id, carousel_data in CAROUSEL_STORAGE.items():
-        status = CAROUSEL_STATUS.get(carousel_id, "unknown")
-        carousels.append({
-            "id": carousel_id,
-            "name": carousel_data['name'],
-            "status": status,
-            "created_at": carousel_data['created_at'],
-            "slides_count": len(carousel_data.get('slides', []))
+    try:
+        # This would get all carousels from database
+        # For now, return empty list
+        return jsonify({
+            "success": True,
+            "carousels": [],
+            "total": 0,
+            "message": "Carousel listing not implemented yet"
         })
-    
-    return jsonify({
-        "success": True,
-        "carousels": carousels,
-        "total": len(carousels)
-    })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to list carousels: {str(e)}"}), 500
 
