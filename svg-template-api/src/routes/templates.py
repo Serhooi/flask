@@ -220,3 +220,145 @@ def get_template_categories():
             "error": f"Failed to get categories: {str(e)}"
         }), 500
 
+
+@templates_bp.route('/templates/carousel-sets')
+def get_carousel_template_sets():
+    """Get carousel template sets (main + photo pairs) for React integration"""
+    try:
+        # Get all templates
+        templates = db.get_templates()
+        
+        # Group templates by base name and category
+        grouped = {}
+        
+        for template in templates:
+            # Skip quick-post templates
+            if template['category'] == 'quick-post':
+                continue
+                
+            base_name = template['name']
+            if base_name.endswith(' - Main') or base_name.endswith(' - Photo'):
+                base_name = base_name.replace(' - Main', '').replace(' - Photo', '')
+            
+            key = f"{template['category']}-{base_name}"
+            
+            if key not in grouped:
+                grouped[key] = {
+                    'base_name': base_name,
+                    'category': template['category'],
+                    'main_template': None,
+                    'photo_template': None
+                }
+            
+            if template['template_type'] == 'main':
+                grouped[key]['main_template'] = template
+            elif template['template_type'] == 'photo':
+                grouped[key]['photo_template'] = template
+        
+        # Build carousel sets (only complete pairs)
+        carousel_sets = []
+        for key, group in grouped.items():
+            if group['main_template'] and group['photo_template']:
+                carousel_sets.append({
+                    'id': f"carousel-{group['main_template']['id']}-{group['photo_template']['id']}",
+                    'name': group['base_name'],
+                    'category': group['category'],
+                    'main_template_id': group['main_template']['id'],
+                    'photo_template_id': group['photo_template']['id'],
+                    'preview_url': group['main_template']['preview_url'],
+                    'template_type': 'carousel',
+                    'created_at': group['main_template']['created_at']
+                })
+        
+        # Group by category for easier React integration
+        categories = {}
+        for carousel_set in carousel_sets:
+            cat = carousel_set['category']
+            if cat not in categories:
+                categories[cat] = []
+            categories[cat].append(carousel_set)
+        
+        return jsonify({
+            "success": True,
+            "carousel_sets": carousel_sets,
+            "categories": categories,
+            "total": len(carousel_sets)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Failed to get carousel template sets: {str(e)}"
+        }), 500
+
+@templates_bp.route('/templates/carousel-sets/<carousel_set_id>')
+def get_carousel_set_details(carousel_set_id):
+    """Get detailed information about a specific carousel template set"""
+    try:
+        # Parse carousel set ID
+        if not carousel_set_id.startswith('carousel-'):
+            return jsonify({
+                "success": False,
+                "error": "Invalid carousel set ID"
+            }), 400
+        
+        parts = carousel_set_id.replace('carousel-', '').split('-')
+        if len(parts) < 2:
+            return jsonify({
+                "success": False,
+                "error": "Invalid carousel set ID format"
+            }), 400
+        
+        main_template_id = parts[0]
+        photo_template_id = parts[1]
+        
+        # Get both templates
+        main_template = db.get_template_by_id(main_template_id)
+        photo_template = db.get_template_by_id(photo_template_id)
+        
+        if not main_template or not photo_template:
+            return jsonify({
+                "success": False,
+                "error": "Carousel template set not found"
+            }), 404
+        
+        carousel_set_details = {
+            "id": carousel_set_id,
+            "name": main_template['name'].replace(' - Main', ''),
+            "category": main_template['category'],
+            "main_template_id": main_template_id,
+            "photo_template_id": photo_template_id,
+            "preview_url": main_template['preview_url'],
+            "template_type": "carousel",
+            "created_at": main_template['created_at'],
+            "updated_at": main_template['updated_at'],
+            "dyno_fields": [
+                "dyno.date",
+                "dyno.time", 
+                "dyno.price",
+                "dyno.address",
+                "dyno.bedrooms",
+                "dyno.bathrooms",
+                "dyno.agentName",
+                "dyno.agentPhone",
+                "dyno.agentEmail",
+                "dyno.features",
+                "dyno.propertyImage",
+                "dyno.logo",
+                "dyno.agentHeadshot"
+            ],
+            "supported_formats": ["PNG"],
+            "max_carousel_slides": 10
+        }
+        
+        return jsonify({
+            "success": True,
+            "carousel_set": carousel_set_details
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": f"Failed to get carousel set details: {str(e)}"
+        }), 500
+

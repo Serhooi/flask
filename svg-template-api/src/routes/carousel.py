@@ -297,3 +297,170 @@ def list_carousels():
     except Exception as e:
         return jsonify({"error": f"Failed to list carousels: {str(e)}"}), 500
 
+
+@carousel_bp.route('/carousel/simple', methods=['POST'])
+def create_simple_carousel():
+    """Create carousel using carousel template set (simplified for React integration)"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        # Validate required fields
+        required_fields = ['carousel_set_id', 'name', 'property_data']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"error": f"{field} is required"}), 400
+        
+        carousel_set_id = data['carousel_set_id']
+        carousel_name = data['name']
+        property_data = data['property_data']
+        property_images = data.get('property_images', [])
+        
+        # Parse carousel set ID to get template IDs
+        if not carousel_set_id.startswith('carousel-'):
+            return jsonify({"error": "Invalid carousel set ID"}), 400
+        
+        parts = carousel_set_id.replace('carousel-', '').split('-')
+        if len(parts) < 2:
+            return jsonify({"error": "Invalid carousel set ID format"}), 400
+        
+        main_template_id = parts[0]
+        photo_template_id = parts[1]
+        
+        # Verify templates exist
+        main_template = db.get_template_by_id(main_template_id)
+        photo_template = db.get_template_by_id(photo_template_id)
+        
+        if not main_template or not photo_template:
+            return jsonify({"error": "Carousel template set not found"}), 404
+        
+        # Create carousel in database
+        carousel_id = db.create_carousel(carousel_name)
+        
+        # Create slides
+        slides_created = 0
+        
+        # Slide 1: Main template with all property data
+        main_replacements = property_data.copy()
+        if property_images:
+            main_replacements['dyno.propertyImage'] = property_images[0]
+        
+        db.create_carousel_slide(
+            carousel_id=carousel_id,
+            template_id=main_template_id,
+            slide_number=1,
+            replacements=json.dumps(main_replacements)
+        )
+        slides_created += 1
+        
+        # Additional slides: Photo template with different property images
+        for i, image_url in enumerate(property_images[1:], start=2):
+            photo_replacements = {
+                'dyno.propertyImage': image_url
+            }
+            
+            db.create_carousel_slide(
+                carousel_id=carousel_id,
+                template_id=photo_template_id,
+                slide_number=i,
+                replacements=json.dumps(photo_replacements)
+            )
+            slides_created += 1
+        
+        return jsonify({
+            "success": True,
+            "carousel_id": carousel_id,
+            "slides_count": slides_created,
+            "main_template_id": main_template_id,
+            "photo_template_id": photo_template_id,
+            "message": f"Carousel created with {slides_created} slides"
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to create simple carousel: {str(e)}"}), 500
+
+@carousel_bp.route('/carousel/from-template-set', methods=['POST'])
+def create_carousel_from_template_set():
+    """Create carousel from template set with automatic main/photo logic"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        # Required fields
+        if 'template_set_name' not in data or 'category' not in data:
+            return jsonify({"error": "template_set_name and category are required"}), 400
+        
+        template_set_name = data['template_set_name']
+        category = data['category']
+        carousel_name = data.get('name', f"{template_set_name} Carousel")
+        property_data = data.get('property_data', {})
+        property_images = data.get('property_images', [])
+        
+        # Find matching main and photo templates
+        main_template_name = f"{template_set_name} - Main"
+        photo_template_name = f"{template_set_name} - Photo"
+        
+        templates = db.get_templates(category=category)
+        main_template = None
+        photo_template = None
+        
+        for template in templates:
+            if template['name'] == main_template_name and template['template_type'] == 'main':
+                main_template = template
+            elif template['name'] == photo_template_name and template['template_type'] == 'photo':
+                photo_template = template
+        
+        if not main_template or not photo_template:
+            return jsonify({
+                "error": f"Template set '{template_set_name}' not found in category '{category}'"
+            }), 404
+        
+        # Create carousel
+        carousel_id = db.create_carousel(carousel_name)
+        
+        # Create slides
+        slides_created = 0
+        
+        # Slide 1: Main template
+        main_replacements = property_data.copy()
+        if property_images:
+            main_replacements['dyno.propertyImage'] = property_images[0]
+        
+        db.create_carousel_slide(
+            carousel_id=carousel_id,
+            template_id=main_template['id'],
+            slide_number=1,
+            replacements=json.dumps(main_replacements)
+        )
+        slides_created += 1
+        
+        # Additional slides: Photo template
+        for i, image_url in enumerate(property_images[1:], start=2):
+            photo_replacements = {
+                'dyno.propertyImage': image_url
+            }
+            
+            db.create_carousel_slide(
+                carousel_id=carousel_id,
+                template_id=photo_template['id'],
+                slide_number=i,
+                replacements=json.dumps(photo_replacements)
+            )
+            slides_created += 1
+        
+        return jsonify({
+            "success": True,
+            "carousel_id": carousel_id,
+            "slides_count": slides_created,
+            "main_template_id": main_template['id'],
+            "photo_template_id": photo_template['id'],
+            "template_set_name": template_set_name
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to create carousel from template set: {str(e)}"}), 500
+

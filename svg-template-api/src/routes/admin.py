@@ -6,8 +6,6 @@ import json
 from datetime import datetime
 import base64
 import io
-from PIL import Image
-import cairosvg
 
 # Import database
 from src.models.database import db
@@ -29,22 +27,50 @@ def allowed_file(filename):
 def generate_preview_from_svg(svg_content, template_id):
     """Generate PNG preview from SVG content"""
     try:
-        # Convert SVG to PNG using cairosvg
-        png_data = cairosvg.svg2png(
-            bytestring=svg_content.encode('utf-8'),
-            output_width=400,  # Preview width
-            output_height=600  # Preview height
-        )
-        
-        # Save preview file
-        preview_filename = f"{template_id}_preview.png"
-        preview_path = os.path.join(PREVIEW_FOLDER, preview_filename)
-        
-        with open(preview_path, 'wb') as f:
-            f.write(png_data)
-        
-        # Return URL path
-        return f"/api/admin/preview/{preview_filename}"
+        # Try to use cairosvg if available, otherwise create simple preview
+        try:
+            import cairosvg
+            # Convert SVG to PNG using cairosvg
+            png_data = cairosvg.svg2png(
+                bytestring=svg_content.encode('utf-8'),
+                output_width=400,  # Preview width
+                output_height=600  # Preview height
+            )
+            
+            # Save preview file
+            preview_filename = f"{template_id}_preview.png"
+            preview_path = os.path.join(PREVIEW_FOLDER, preview_filename)
+            
+            with open(preview_path, 'wb') as f:
+                f.write(png_data)
+            
+            # Return URL path
+            return f"/api/admin/preview/{preview_filename}"
+            
+        except ImportError:
+            # Fallback: create simple text preview
+            from PIL import Image, ImageDraw, ImageFont
+            
+            # Create simple preview image
+            img = Image.new('RGB', (400, 600), color='white')
+            draw = ImageDraw.Draw(img)
+            
+            try:
+                font = ImageFont.load_default()
+            except:
+                font = None
+            
+            # Draw simple preview text
+            draw.text((20, 20), "SVG Template", fill='black', font=font)
+            draw.text((20, 50), f"ID: {template_id[:20]}...", fill='gray', font=font)
+            draw.text((20, 80), "Preview not available", fill='gray', font=font)
+            
+            # Save preview file
+            preview_filename = f"{template_id}_preview.png"
+            preview_path = os.path.join(PREVIEW_FOLDER, preview_filename)
+            img.save(preview_path)
+            
+            return f"/api/admin/preview/{preview_filename}"
         
     except Exception as e:
         print(f"Error generating preview: {e}")
@@ -295,4 +321,108 @@ def get_admin_stats():
         
     except Exception as e:
         return jsonify({"error": f"Failed to get stats: {str(e)}"}), 500
+
+
+@admin_bp.route('/admin/carousel-templates', methods=['GET'])
+def get_carousel_templates():
+    """Get carousel template sets (grouped main + photo templates)"""
+    try:
+        # Get all templates
+        templates = db.get_templates()
+        
+        # Group templates by base name (removing " - Main" or " - Photo" suffix)
+        grouped = {}
+        
+        for template in templates:
+            base_name = template['name']
+            if base_name.endswith(' - Main') or base_name.endswith(' - Photo'):
+                base_name = base_name.replace(' - Main', '').replace(' - Photo', '')
+            
+            if base_name not in grouped:
+                grouped[base_name] = {
+                    'base_name': base_name,
+                    'category': template['category'],
+                    'main_template': None,
+                    'photo_template': None
+                }
+            
+            if template['template_type'] == 'main':
+                grouped[base_name]['main_template'] = template
+            elif template['template_type'] == 'photo':
+                grouped[base_name]['photo_template'] = template
+        
+        # Filter to only complete sets (both main and photo)
+        complete_sets = []
+        for base_name, group in grouped.items():
+            if group['main_template'] and group['photo_template']:
+                complete_sets.append({
+                    'id': f"carousel-{group['main_template']['id']}-{group['photo_template']['id']}",
+                    'name': base_name,
+                    'category': group['category'],
+                    'main_template_id': group['main_template']['id'],
+                    'photo_template_id': group['photo_template']['id'],
+                    'main_preview_url': group['main_template']['preview_url'],
+                    'photo_preview_url': group['photo_template']['preview_url'],
+                    'created_at': group['main_template']['created_at']
+                })
+        
+        return jsonify({
+            "success": True,
+            "carousel_templates": complete_sets,
+            "total": len(complete_sets)
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to get carousel templates: {str(e)}"}), 500
+
+@admin_bp.route('/admin/carousel-templates/<carousel_template_id>', methods=['GET'])
+def get_carousel_template_details(carousel_template_id):
+    """Get detailed information about a carousel template set"""
+    try:
+        # Parse carousel template ID to get main and photo template IDs
+        if not carousel_template_id.startswith('carousel-'):
+            return jsonify({"error": "Invalid carousel template ID"}), 400
+        
+        parts = carousel_template_id.replace('carousel-', '').split('-')
+        if len(parts) < 2:
+            return jsonify({"error": "Invalid carousel template ID format"}), 400
+        
+        main_template_id = parts[0]
+        photo_template_id = parts[1]
+        
+        # Get both templates
+        main_template = db.get_template_by_id(main_template_id)
+        photo_template = db.get_template_by_id(photo_template_id)
+        
+        if not main_template or not photo_template:
+            return jsonify({"error": "Carousel template not found"}), 404
+        
+        return jsonify({
+            "success": True,
+            "carousel_template": {
+                "id": carousel_template_id,
+                "name": main_template['name'].replace(' - Main', ''),
+                "category": main_template['category'],
+                "main_template": main_template,
+                "photo_template": photo_template,
+                "dyno_fields": [
+                    "dyno.date",
+                    "dyno.time", 
+                    "dyno.price",
+                    "dyno.address",
+                    "dyno.bedrooms",
+                    "dyno.bathrooms",
+                    "dyno.agentName",
+                    "dyno.agentPhone",
+                    "dyno.agentEmail",
+                    "dyno.features",
+                    "dyno.propertyImage",
+                    "dyno.logo",
+                    "dyno.agentHeadshot"
+                ]
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to get carousel template details: {str(e)}"}), 500
 
