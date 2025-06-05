@@ -13,6 +13,47 @@ carousel_bp = Blueprint('carousel', __name__)
 # In-memory storage for processing status (in production, use Redis)
 PROCESSING_STATUS = {}
 
+def process_svg_with_empty_field_handling(svg_content, replacements):
+    """Process SVG content with proper empty field handling"""
+    try:
+        # Import the processor
+        from src.complete_svg_processor import CompleteSVGProcessor
+        
+        # Create processor instance
+        processor = CompleteSVGProcessor(svg_content)
+        
+        # Process each replacement with empty field logic
+        for field, value in replacements.items():
+            if field.startswith('dyno.'):
+                dyno_field = field[5:]  # Remove 'dyno.' prefix
+                
+                # 🔥 EMPTY FIELD HANDLING LOGIC
+                if not value or str(value).strip() == "":
+                    print(f"📝 Field {dyno_field} is empty - leaving blank")
+                    processor.replace_text(dyno_field, "")
+                else:
+                    # Process non-empty fields normally
+                    if dyno_field in processor.dyno_elements:
+                        element_type = processor.dyno_elements[dyno_field]['type']
+                        
+                        if element_type == 'text':
+                            processor.replace_text(dyno_field, str(value))
+                        elif element_type == 'image' and os.path.exists(str(value)):
+                            processor.replace_image(dyno_field, str(value))
+        
+        return {
+            'success': True,
+            'svg_content': processor.processed_svg,
+            'dyno_fields_found': len(processor.dyno_elements)
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'svg_content': svg_content  # Return original on error
+        }
+
 def generate_carousel_async(carousel_id):
     """Background task to generate carousel slides"""
     try:
@@ -30,8 +71,6 @@ def generate_carousel_async(carousel_id):
             PROCESSING_STATUS[carousel_id] = "failed"
             return
         
-        processor = CompleteSVGProcessor()
-        
         for slide in slides:
             try:
                 # Get template from database
@@ -42,11 +81,10 @@ def generate_carousel_async(carousel_id):
                 # Parse replacements
                 replacements = json.loads(slide['replacements']) if slide['replacements'] else {}
                 
-                # Process the slide using SVG content from database
-                result = processor.process_svg_content(
+                # 🔥 USE NEW EMPTY FIELD HANDLING FUNCTION
+                result = process_svg_with_empty_field_handling(
                     svg_content=template['svg_content'],
-                    replacements=replacements,
-                    canvas_width=1080
+                    replacements=replacements
                 )
                 
                 if result['success']:
@@ -56,11 +94,13 @@ def generate_carousel_async(carousel_id):
                     # Update slide with image URL
                     db.update_slide_image_url(slide['id'], slide_url)
                     
+                    print(f"✅ Processed slide {slide['slide_number']} with {result['dyno_fields_found']} dynamic fields")
+                    
                 else:
-                    print(f"Failed to process slide {slide['slide_number']}: {result.get('error', 'Unknown error')}")
+                    print(f"❌ Failed to process slide {slide['slide_number']}: {result.get('error', 'Unknown error')}")
                     
             except Exception as e:
-                print(f"Error processing slide {slide['slide_number']}: {str(e)}")
+                print(f"❌ Error processing slide {slide['slide_number']}: {str(e)}")
                 continue
         
         # Update carousel status
@@ -68,7 +108,7 @@ def generate_carousel_async(carousel_id):
         PROCESSING_STATUS[carousel_id] = "completed"
         
     except Exception as e:
-        print(f"Error in generate_carousel_async: {str(e)}")
+        print(f"❌ Error in generate_carousel_async: {str(e)}")
         db.update_carousel_status(carousel_id, "failed")
         PROCESSING_STATUS[carousel_id] = "failed"
 

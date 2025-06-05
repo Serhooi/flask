@@ -75,12 +75,18 @@ class CompleteSVGProcessor:
         return ""
     
     def replace_text(self, dyno_id: str, new_text: str):
-        """Заменяет текст в элементе с автопереносом"""
+        """Заменяет текст в элементе с автопереносом и поддержкой пустых полей"""
         if dyno_id not in self.dyno_elements:
             print(f"⚠️ Элемент {dyno_id} не найден")
             return
         
         element_id = self.dyno_elements[dyno_id]['id']
+        
+        # 🔥 ЛОГИКА ПУСТЫХ ПОЛЕЙ
+        if not new_text or new_text.strip() == "":
+            print(f"📝 Поле {dyno_id} пустое - оставляем пустым")
+            self._replace_simple_text(element_id, "")
+            return
         
         # Специальная обработка для адреса
         if 'address' in dyno_id.lower():

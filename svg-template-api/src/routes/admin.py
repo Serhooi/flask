@@ -13,8 +13,8 @@ from src.models.database import db
 admin_bp = Blueprint('admin', __name__)
 
 # Configuration
-UPLOAD_FOLDER = 'uploads'
-PREVIEW_FOLDER = 'previews'
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'static', 'uploads')
+PREVIEW_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'static', 'previews')
 ALLOWED_EXTENSIONS = {'svg'}
 
 # Ensure upload directories exist
@@ -25,56 +25,182 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def generate_preview_from_svg(svg_content, template_id):
-    """Generate PNG preview from SVG content"""
+    """Generate PNG preview from SVG content with improved error handling"""
     try:
-        # Try to use cairosvg if available, otherwise create simple preview
+        import cairosvg
+        from PIL import Image, ImageDraw, ImageFont
+        import io
+        
+        # Clean SVG content for better rendering
+        cleaned_svg = clean_svg_for_preview(svg_content)
+        
         try:
-            import cairosvg
-            # Convert SVG to PNG using cairosvg
+            # Convert SVG to PNG using cairosvg with better settings
             png_data = cairosvg.svg2png(
-                bytestring=svg_content.encode('utf-8'),
+                bytestring=cleaned_svg.encode('utf-8'),
                 output_width=400,  # Preview width
-                output_height=600  # Preview height
+                output_height=600,  # Preview height
+                background_color='white'  # Ensure white background
             )
             
-            # Save preview file
-            preview_filename = f"{template_id}_preview.png"
-            preview_path = os.path.join(PREVIEW_FOLDER, preview_filename)
+            # Validate PNG data
+            if png_data and len(png_data) > 100:  # Basic validation
+                # Save preview file
+                preview_filename = f"{template_id}_preview.png"
+                preview_path = os.path.join(PREVIEW_FOLDER, preview_filename)
+                
+                with open(preview_path, 'wb') as f:
+                    f.write(png_data)
+                
+                print(f"✅ Generated SVG preview: {preview_filename} ({len(png_data)} bytes)")
+                return f"/api/admin/preview/{preview_filename}"
+            else:
+                raise Exception("Invalid PNG data generated")
+                
+        except Exception as svg_error:
+            print(f"⚠️ SVG conversion failed: {svg_error}")
+            # Fallback: create enhanced preview with SVG info
+            return create_fallback_preview(template_id, svg_content)
+        
+    except ImportError:
+        print("⚠️ cairosvg not available, using fallback preview")
+        return create_fallback_preview(template_id, svg_content)
+    except Exception as e:
+        print(f"❌ Error generating preview: {e}")
+        return create_fallback_preview(template_id, svg_content)
+
+def clean_svg_for_preview(svg_content):
+    """Clean SVG content for better preview rendering"""
+    import re
+    
+    # Remove problematic elements that might cause rendering issues
+    cleaned = svg_content
+    
+    # Remove Figma-specific attributes that might cause issues
+    figma_attrs = [
+        r'\s+figma:type="[^"]*"',
+        r'\s+data-figma-[^=]*="[^"]*"',
+        r'\s+figma-[^=]*="[^"]*"'
+    ]
+    for attr in figma_attrs:
+        cleaned = re.sub(attr, '', cleaned)
+    
+    # Ensure SVG has proper dimensions
+    if 'width=' not in cleaned or 'height=' not in cleaned:
+        # Add default dimensions if missing
+        cleaned = re.sub(r'<svg([^>]*?)>', r'<svg\1 width="1080" height="1080">', cleaned)
+    
+    # Remove empty or problematic elements
+    cleaned = re.sub(r'<[^>]*>\s*</[^>]*>', '', cleaned)  # Remove empty tags
+    cleaned = re.sub(r'\s+', ' ', cleaned)  # Normalize whitespace
+    
+    return cleaned
+
+def create_fallback_preview(template_id, svg_content):
+    """Create enhanced fallback preview when SVG conversion fails"""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        import re
+        
+        # Create preview image
+        img = Image.new('RGB', (400, 600), color='#f8f9fa')
+        draw = ImageDraw.Draw(img)
+        
+        try:
+            # Try to load a better font
+            font_large = ImageFont.load_default()
+            font_small = ImageFont.load_default()
+        except:
+            font_large = None
+            font_small = None
+        
+        # Draw border
+        draw.rectangle([10, 10, 390, 590], outline='#dee2e6', width=2)
+        
+        # Extract some info from SVG
+        svg_info = extract_svg_info(svg_content)
+        
+        # Draw preview content
+        y_pos = 30
+        
+        # Title
+        draw.text((20, y_pos), "SVG Template Preview", fill='#212529', font=font_large)
+        y_pos += 40
+        
+        # Template ID
+        draw.text((20, y_pos), f"ID: {template_id[:30]}...", fill='#6c757d', font=font_small)
+        y_pos += 30
+        
+        # SVG dimensions
+        if svg_info['width'] and svg_info['height']:
+            draw.text((20, y_pos), f"Size: {svg_info['width']} x {svg_info['height']}", fill='#6c757d', font=font_small)
+            y_pos += 25
+        
+        # Number of elements
+        if svg_info['elements']:
+            draw.text((20, y_pos), f"Elements: {svg_info['elements']}", fill='#6c757d', font=font_small)
+            y_pos += 25
+        
+        # Dyno fields found
+        if svg_info['dyno_fields']:
+            draw.text((20, y_pos), f"Dynamic fields: {len(svg_info['dyno_fields'])}", fill='#28a745', font=font_small)
+            y_pos += 25
             
-            with open(preview_path, 'wb') as f:
-                f.write(png_data)
-            
-            # Return URL path
-            return f"/api/admin/preview/{preview_filename}"
-            
-        except ImportError:
-            # Fallback: create simple text preview
-            from PIL import Image, ImageDraw, ImageFont
-            
-            # Create simple preview image
-            img = Image.new('RGB', (400, 600), color='white')
-            draw = ImageDraw.Draw(img)
-            
-            try:
-                font = ImageFont.load_default()
-            except:
-                font = None
-            
-            # Draw simple preview text
-            draw.text((20, 20), "SVG Template", fill='black', font=font)
-            draw.text((20, 50), f"ID: {template_id[:20]}...", fill='gray', font=font)
-            draw.text((20, 80), "Preview not available", fill='gray', font=font)
-            
-            # Save preview file
-            preview_filename = f"{template_id}_preview.png"
-            preview_path = os.path.join(PREVIEW_FOLDER, preview_filename)
-            img.save(preview_path)
-            
-            return f"/api/admin/preview/{preview_filename}"
+            # List some dyno fields
+            for i, field in enumerate(svg_info['dyno_fields'][:8]):  # Show max 8 fields
+                draw.text((30, y_pos), f"• {field}", fill='#28a745', font=font_small)
+                y_pos += 20
+                if y_pos > 550:  # Don't overflow
+                    break
+        
+        # Status message
+        draw.text((20, 560), "Preview generation in progress...", fill='#ffc107', font=font_small)
+        
+        # Save preview file
+        preview_filename = f"{template_id}_preview.png"
+        preview_path = os.path.join(PREVIEW_FOLDER, preview_filename)
+        img.save(preview_path)
+        
+        print(f"✅ Generated fallback preview: {preview_filename}")
+        return f"/api/admin/preview/{preview_filename}"
         
     except Exception as e:
-        print(f"Error generating preview: {e}")
+        print(f"❌ Fallback preview creation failed: {e}")
         return None
+
+def extract_svg_info(svg_content):
+    """Extract useful information from SVG content"""
+    import re
+    
+    info = {
+        'width': None,
+        'height': None,
+        'elements': 0,
+        'dyno_fields': []
+    }
+    
+    try:
+        # Extract dimensions
+        width_match = re.search(r'width="([^"]*)"', svg_content)
+        height_match = re.search(r'height="([^"]*)"', svg_content)
+        
+        if width_match:
+            info['width'] = width_match.group(1)
+        if height_match:
+            info['height'] = height_match.group(1)
+        
+        # Count elements
+        elements = re.findall(r'<(rect|circle|ellipse|line|polyline|polygon|path|text|image|g)', svg_content)
+        info['elements'] = len(elements)
+        
+        # Find dyno fields
+        dyno_matches = re.findall(r'id="[^"]*dyno\.([^"]*)"', svg_content)
+        info['dyno_fields'] = list(set(dyno_matches))  # Remove duplicates
+        
+    except Exception as e:
+        print(f"Error extracting SVG info: {e}")
+    
+    return info
 
 @admin_bp.route('/admin/upload-template', methods=['POST'])
 def upload_template():
