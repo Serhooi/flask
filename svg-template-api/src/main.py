@@ -18,8 +18,23 @@ from datetime import datetime
 app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
 app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
 
-# Enable CORS for all routes
-CORS(app)
+# ✅ CONFIGURATION FOR LARGE FILES
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
+app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Disable caching for development
+
+# Create upload directory if it doesn't exist
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# Enable CORS for all routes with proper headers
+CORS(app, resources={
+    r"/api/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "max_age": 3600
+    }
+})
 
 # Register blueprints
 app.register_blueprint(user_bp, url_prefix='/api')
@@ -65,6 +80,31 @@ def serve(path):
             return send_from_directory(static_folder_path, 'index.html')
         else:
             return "index.html not found", 404
+
+# ✅ ERROR HANDLERS FOR LARGE FILES
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    return jsonify({
+        "success": False,
+        "error": "File too large. Maximum size is 50MB.",
+        "error_code": "FILE_TOO_LARGE"
+    }), 413
+
+@app.errorhandler(400)
+def bad_request(error):
+    return jsonify({
+        "success": False,
+        "error": "Bad request. Please check your file format and size.",
+        "error_code": "BAD_REQUEST"
+    }), 400
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    return jsonify({
+        "success": False,
+        "error": "Internal server error. Please try again later.",
+        "error_code": "INTERNAL_ERROR"
+    }), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

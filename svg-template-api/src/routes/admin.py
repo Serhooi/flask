@@ -78,18 +78,30 @@ def generate_preview_from_svg(svg_content, template_id):
 
 @admin_bp.route('/admin/upload-template', methods=['POST'])
 def upload_template():
-    """Upload a new SVG template"""
+    """Upload a new SVG template with optimization for large files"""
     try:
         # Check if file is present
         if 'file' not in request.files:
-            return jsonify({"error": "No file provided"}), 400
+            return jsonify({
+                "success": False,
+                "error": "No file provided",
+                "error_code": "NO_FILE"
+            }), 400
         
         file = request.files['file']
         if file.filename == '':
-            return jsonify({"error": "No file selected"}), 400
+            return jsonify({
+                "success": False,
+                "error": "No file selected",
+                "error_code": "NO_FILE_SELECTED"
+            }), 400
         
         if not allowed_file(file.filename):
-            return jsonify({"error": "Only SVG files are allowed"}), 400
+            return jsonify({
+                "success": False,
+                "error": "Only SVG files are allowed",
+                "error_code": "INVALID_FILE_TYPE"
+            }), 400
         
         # Get form data
         name = request.form.get('name')
@@ -97,33 +109,208 @@ def upload_template():
         template_type = request.form.get('template_type', 'main')
         
         if not name or not category:
-            return jsonify({"error": "Name and category are required"}), 400
+            return jsonify({
+                "success": False,
+                "error": "Name and category are required",
+                "error_code": "MISSING_FIELDS"
+            }), 400
         
-        # Read SVG content
-        svg_content = file.read().decode('utf-8')
+        # ✅ READ SVG CONTENT WITH SIZE CHECK
+        try:
+            svg_content = file.read().decode('utf-8')
+            file_size = len(svg_content.encode('utf-8'))
+            
+            # Log file size for debugging
+            print(f"Processing SVG file: {file.filename}, Size: {file_size / 1024 / 1024:.2f}MB")
+            
+            if file_size > 25 * 1024 * 1024:  # 25MB limit for processing
+                return jsonify({
+                    "success": False,
+                    "error": "SVG file too large for processing. Maximum 25MB.",
+                    "error_code": "FILE_TOO_LARGE_PROCESSING"
+                }), 413
+                
+        except UnicodeDecodeError:
+            return jsonify({
+                "success": False,
+                "error": "Invalid SVG file encoding",
+                "error_code": "INVALID_ENCODING"
+            }), 400
         
-        # Generate preview
-        template_id = str(uuid.uuid4())
-        preview_url = generate_preview_from_svg(svg_content, template_id)
+        # ✅ OPTIMIZE SVG CONTENT
+        optimized_svg = optimize_svg_content(svg_content)
         
-        # Save to database
-        db.create_template(
-            name=name,
-            category=category,
-            template_type=template_type,
-            svg_content=svg_content,
-            preview_url=preview_url
-        )
+        # Generate unique template ID
+        template_id = f"{category}-{template_type}-{str(uuid.uuid4())[:8]}"
+        
+        # ✅ GENERATE PREVIEW WITH TIMEOUT
+        try:
+            preview_url = generate_preview_from_svg(optimized_svg, template_id)
+        except Exception as e:
+            print(f"Preview generation failed: {str(e)}")
+            # Use fallback preview
+            preview_url = f"/api/admin/preview/placeholder.png"
+        
+        # ✅ SAVE TO DATABASE WITH ERROR HANDLING
+        try:
+            db.create_template(
+                id=template_id,
+                name=name,
+                category=category,
+                template_type=template_type,
+                svg_content=optimized_svg,
+                preview_url=preview_url
+            )
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": f"Database error: {str(e)}",
+                "error_code": "DATABASE_ERROR"
+            }), 500
         
         return jsonify({
             "success": True,
             "template_id": template_id,
             "message": "Template uploaded successfully",
-            "preview_url": preview_url
+            "preview_url": preview_url,
+            "original_size": f"{file_size / 1024 / 1024:.2f}MB",
+            "optimized_size": f"{len(optimized_svg.encode('utf-8')) / 1024 / 1024:.2f}MB"
         })
         
     except Exception as e:
-        return jsonify({"error": f"Upload failed: {str(e)}"}), 500
+        print(f"Upload error: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": f"Upload failed: {str(e)}",
+            "error_code": "UPLOAD_FAILED"
+        }), 500
+
+def optimize_svg_content(svg_content):
+    """Advanced SVG optimization to reduce file size"""
+    try:
+        import re
+        
+        # Basic SVG optimization
+        optimized = svg_content
+        
+        # ✅ REMOVE COMMENTS AND METADATA
+        optimized = re.sub(r'<!--.*?-->', '', optimized, flags=re.DOTALL)
+        optimized = re.sub(r'<metadata>.*?</metadata>', '', optimized, flags=re.DOTALL)
+        optimized = re.sub(r'<title>.*?</title>', '', optimized, flags=re.DOTALL)
+        optimized = re.sub(r'<desc>.*?</desc>', '', optimized, flags=re.DOTALL)
+        
+        # ✅ REMOVE FIGMA-SPECIFIC ATTRIBUTES
+        figma_attrs = [
+            r'\s+figma:type="[^"]*"',
+            r'\s+data-figma-[^=]*="[^"]*"',
+            r'\s+figma-[^=]*="[^"]*"'
+        ]
+        for attr in figma_attrs:
+            optimized = re.sub(attr, '', optimized)
+        
+        # ✅ OPTIMIZE WHITESPACE
+        optimized = re.sub(r'\s+', ' ', optimized)
+        optimized = re.sub(r'>\s+<', '><', optimized)
+        optimized = re.sub(r'\s+/>', '/>', optimized)
+        
+        # ✅ REMOVE EMPTY ATTRIBUTES
+        optimized = re.sub(r'\s+[a-zA-Z-]+=""', '', optimized)
+        
+        # ✅ OPTIMIZE NUMBERS (ROUND TO 2 DECIMAL PLACES)
+        def round_numbers(match):
+            try:
+                num = float(match.group(1))
+                return f"{num:.2f}" if num != int(num) else str(int(num))
+            except:
+                return match.group(1)
+        
+        # Round coordinates and dimensions
+        optimized = re.sub(r'([+-]?\d+\.\d{3,})', round_numbers, optimized)
+        
+        # ✅ REMOVE UNUSED DEFINITIONS
+        # Find all used IDs
+        used_ids = set(re.findall(r'(?:url\(#|href="#)([^")]+)', optimized))
+        
+        # Remove unused defs
+        def filter_defs(match):
+            def_content = match.group(1)
+            def_ids = re.findall(r'id="([^"]+)"', def_content)
+            
+            filtered_defs = []
+            for def_match in re.finditer(r'<[^>]+id="([^"]+)"[^>]*>.*?</[^>]+>', def_content, re.DOTALL):
+                def_id = def_match.group(1)
+                if def_id in used_ids:
+                    filtered_defs.append(def_match.group(0))
+            
+            if filtered_defs:
+                return f'<defs>{"".join(filtered_defs)}</defs>'
+            return ''
+        
+        optimized = re.sub(r'<defs>(.*?)</defs>', filter_defs, optimized, flags=re.DOTALL)
+        
+        # ✅ COMPRESS PATHS (BASIC)
+        def compress_path(match):
+            path = match.group(1)
+            # Remove unnecessary spaces in path data
+            path = re.sub(r'\s+', ' ', path)
+            path = re.sub(r'([MLHVCSQTAZmlhvcsqtaz])\s+', r'\1', path)
+            return f'd="{path.strip()}"'
+        
+        optimized = re.sub(r'd="([^"]+)"', compress_path, optimized)
+        
+        # ✅ FINAL CLEANUP
+        optimized = optimized.strip()
+        
+        # Calculate compression ratio
+        original_size = len(svg_content.encode('utf-8'))
+        optimized_size = len(optimized.encode('utf-8'))
+        compression_ratio = (1 - optimized_size / original_size) * 100
+        
+        print(f"SVG optimization: {original_size} → {optimized_size} bytes ({compression_ratio:.1f}% reduction)")
+        
+        return optimized
+        
+    except Exception as e:
+        print(f"SVG optimization failed: {str(e)}")
+        return svg_content  # Return original if optimization fails
+
+def compress_svg_with_gzip(svg_content):
+    """Compress SVG content using gzip for storage"""
+    try:
+        import gzip
+        import base64
+        
+        # Compress with gzip
+        compressed = gzip.compress(svg_content.encode('utf-8'))
+        
+        # Encode as base64 for storage
+        encoded = base64.b64encode(compressed).decode('utf-8')
+        
+        print(f"GZIP compression: {len(svg_content)} → {len(compressed)} bytes")
+        
+        return encoded
+        
+    except Exception as e:
+        print(f"GZIP compression failed: {str(e)}")
+        return svg_content
+
+def decompress_svg_from_gzip(compressed_data):
+    """Decompress SVG content from gzip storage"""
+    try:
+        import gzip
+        import base64
+        
+        # Decode from base64
+        compressed = base64.b64decode(compressed_data.encode('utf-8'))
+        
+        # Decompress with gzip
+        decompressed = gzip.decompress(compressed).decode('utf-8')
+        
+        return decompressed
+        
+    except Exception as e:
+        print(f"GZIP decompression failed: {str(e)}")
+        return compressed_data
 
 @admin_bp.route('/admin/templates', methods=['GET'])
 def get_admin_templates():

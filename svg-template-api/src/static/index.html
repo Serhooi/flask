@@ -521,7 +521,18 @@
                 return;
             }
             
-            // Show loading
+            // ✅ CHECK FILE SIZES
+            const maxSize = 25 * 1024 * 1024; // 25MB
+            if (mainFile.size > maxSize) {
+                showAlert(`Main template file too large: ${(mainFile.size / 1024 / 1024).toFixed(1)}MB. Maximum: 25MB`, 'error');
+                return;
+            }
+            if (photoFile.size > maxSize) {
+                showAlert(`Photo template file too large: ${(photoFile.size / 1024 / 1024).toFixed(1)}MB. Maximum: 25MB`, 'error');
+                return;
+            }
+            
+            // Show loading with progress
             const uploadBtn = document.getElementById('upload-btn');
             const uploadText = document.getElementById('upload-text');
             const uploadSpinner = document.getElementById('upload-spinner');
@@ -530,31 +541,123 @@
             uploadText.style.display = 'none';
             uploadSpinner.style.display = 'inline-block';
             
+            // ✅ CREATE PROGRESS BAR
+            const progressContainer = document.createElement('div');
+            progressContainer.innerHTML = `
+                <div style="margin-top: 10px; padding: 10px; background: #f0f0f0; border-radius: 8px;">
+                    <div style="font-size: 14px; margin-bottom: 5px;">Uploading templates...</div>
+                    <div style="background: #ddd; border-radius: 4px; height: 8px; overflow: hidden;">
+                        <div id="upload-progress" style="background: #4CAF50; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                    <div id="upload-status" style="font-size: 12px; margin-top: 5px; color: #666;"></div>
+                </div>
+            `;
+            uploadBtn.parentNode.appendChild(progressContainer);
+            
+            const progressBar = document.getElementById('upload-progress');
+            const statusText = document.getElementById('upload-status');
+            
             try {
-                // Upload main template
-                const mainResult = await uploadTemplate(mainFile, `${name} - Main`, category, 'main');
+                // Upload main template with progress
+                statusText.textContent = `Uploading main template (${(mainFile.size / 1024 / 1024).toFixed(1)}MB)...`;
+                progressBar.style.width = '10%';
+                
+                const mainResult = await uploadTemplateWithProgress(mainFile, `${name} - Main`, category, 'main', (progress) => {
+                    progressBar.style.width = `${10 + progress * 0.4}%`;
+                });
+                
                 if (!mainResult.success) {
                     throw new Error(`Main template upload failed: ${mainResult.error}`);
                 }
                 
-                // Upload photo template
-                const photoResult = await uploadTemplate(photoFile, `${name} - Photo`, category, 'photo');
+                // Upload photo template with progress
+                statusText.textContent = `Uploading photo template (${(photoFile.size / 1024 / 1024).toFixed(1)}MB)...`;
+                progressBar.style.width = '50%';
+                
+                const photoResult = await uploadTemplateWithProgress(photoFile, `${name} - Photo`, category, 'photo', (progress) => {
+                    progressBar.style.width = `${50 + progress * 0.4}%`;
+                });
+                
                 if (!photoResult.success) {
                     throw new Error(`Photo template upload failed: ${photoResult.error}`);
                 }
+                
+                // Complete
+                progressBar.style.width = '100%';
+                statusText.textContent = 'Upload completed successfully!';
                 
                 showAlert(`✅ Carousel templates uploaded successfully!\n📋 Main: ${mainResult.template_id}\n🖼️ Photo: ${photoResult.template_id}`, 'success');
                 clearForm();
                 loadExistingTemplates();
                 
             } catch (error) {
-                showAlert(error.message, 'error');
+                console.error('Upload error:', error);
+                showAlert(`❌ Upload failed: ${error.message}`, 'error');
             } finally {
-                // Hide loading
+                // Hide loading and progress
                 uploadBtn.disabled = false;
                 uploadText.style.display = 'inline';
                 uploadSpinner.style.display = 'none';
+                
+                // Remove progress bar after delay
+                setTimeout(() => {
+                    if (progressContainer.parentNode) {
+                        progressContainer.parentNode.removeChild(progressContainer);
+                    }
+                }, 3000);
             }
+        }
+        
+        async function uploadTemplateWithProgress(file, name, category, templateType, onProgress) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('name', name);
+                formData.append('category', category);
+                formData.append('template_type', templateType);
+                
+                const xhr = new XMLHttpRequest();
+                
+                // ✅ TRACK UPLOAD PROGRESS
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const progress = (e.loaded / e.total) * 100;
+                        onProgress(progress);
+                    }
+                });
+                
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 200) {
+                        try {
+                            const result = JSON.parse(xhr.responseText);
+                            resolve(result);
+                        } catch (e) {
+                            reject(new Error('Invalid response format'));
+                        }
+                    } else {
+                        try {
+                            const error = JSON.parse(xhr.responseText);
+                            reject(new Error(error.error || `HTTP ${xhr.status}`));
+                        } catch (e) {
+                            reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+                        }
+                    }
+                });
+                
+                xhr.addEventListener('error', () => {
+                    reject(new Error('Network error occurred'));
+                });
+                
+                xhr.addEventListener('timeout', () => {
+                    reject(new Error('Upload timeout (file too large or slow connection)'));
+                });
+                
+                // ✅ SET TIMEOUT FOR LARGE FILES
+                xhr.timeout = 300000; // 5 minutes timeout
+                
+                xhr.open('POST', '/api/admin/upload-template');
+                xhr.send(formData);
+            });
         }
         
         async function uploadTemplate(file, name, category, templateType) {
