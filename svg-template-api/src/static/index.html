@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SVG Template API - Integration Ready</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 3rem;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .api-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .api-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .api-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .api-card h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+        
+        .endpoint {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            font-family: 'Courier New', monospace;
+            border-left: 4px solid #667eea;
+        }
+        
+        .method {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+        
+        .get { background: #28a745; color: white; }
+        .post { background: #007bff; color: white; }
+        
+        .features {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .features h2 {
+            color: #667eea;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .feature {
+            text-align: center;
+            padding: 1rem;
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .integration-info {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .integration-info h2 {
+            color: #667eea;
+            margin-bottom: 1.5rem;
+        }
+        
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin: 0.5rem 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 SVG Template API</h1>
+            <p>Ready for React Integration • Templates • Carousels • Authentication</p>
+            <div class="status-badge">✅ Production Ready</div>
+        </div>
+        
+        <div class="features">
+            <h2>🎯 Integrated Features</h2>
+            <div class="feature-grid">
+                <div class="feature">
+                    <div class="feature-icon">📋</div>
+                    <h3>Template Management</h3>
+                    <p>Flyers & Quick Posts with categories</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🎠</div>
+                    <h3>Carousel Generation</h3>
+                    <p>Main + Photo templates logic</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🔐</div>
+                    <h3>Authentication</h3>
+                    <p>Bearer token support</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🌐</div>
+                    <h3>Permanent URLs</h3>
+                    <p>Direct image links</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Auto Text Wrap</h3>
+                    <p>Address & text handling</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Async Processing</h3>
+                    <p>Background generation</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="api-grid">
+            <div class="api-card">
+                <h3>📋 Template Endpoints</h3>
+                <div class="endpoint">
+                    <span class="method get">GET</span>/api/templates/flyers
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>/api/templates/quick-posts
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>/api/templates/categories
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>/api/templates/{id}
+                </div>
+            </div>
+            
+            <div class="api-card">
+                <h3>🎠 Carousel Endpoints</h3>
+                <div class="endpoint">
+                    <span class="method post">POST</span>/api/carousel
+                </div>
+                <div class="endpoint">
+                    <span class="method post">POST</span>/api/carousel/{id}/generate
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>/api/carousel/{id}/slides
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>/api/carousel/{id}/status
+                </div>
+            </div>
+            
+            <div class="api-card">
+                <h3>🔧 System Endpoints</h3>
+                <div class="endpoint">
+                    <span class="method get">GET</span>/api/health
+                </div>
+                <div class="endpoint">
+                    <span class="method get">GET</span>/api/carousels
+                </div>
+            </div>
+        </div>
+        
+        <div class="integration-info">
+            <h2>🔗 React Integration Example</h2>
+            <p>Your polling workflow implementation:</p>
+            
+            <div class="code-block">
+// 1. Create carousel
+const carousel = await fetch('/api/carousel', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer your-token',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({ name: 'Property Carousel' })
+});
+
+// 2. Start generation
+await fetch(`/api/carousel/${carouselId}/generate`, {
+  method: 'POST',
+  body: JSON.stringify({
+    slides: [
+      {
+        templateId: 'main-template-id',
+        replacements: { 'dyno.agentName': 'John', ... }
+      },
+      {
+        templateId: 'photo-template-id', 
+        replacements: { 'dyno.propertyImage': '...' }
+      }
+    ]
+  })
+});
+
+// 3. Poll for results
+const slides = await fetch(`/api/carousel/${carouselId}/slides`);
+            </div>
+            
+            <h3>✅ Template Categories Available:</h3>
+            <ul style="margin: 1rem 0; padding-left: 2rem;">
+                <li><strong>Open House</strong> - Main & Photo templates</li>
+                <li><strong>Sold</strong> - Main & Photo templates</li>
+                <li><strong>For Rent</strong> - Main & Photo templates</li>
+                <li><strong>Lease</strong> - Main & Photo templates</li>
+                <li><strong>Quick Posts</strong> - Single templates</li>
+            </ul>
+            
+            <h3>🎯 Perfect Match for Your Architecture:</h3>
+            <ul style="margin: 1rem 0; padding-left: 2rem;">
+                <li>✅ Permanent URLs (not temporary)</li>
+                <li>✅ Bearer token authentication</li>
+                <li>✅ Polling-friendly async processing</li>
+                <li>✅ Main + Photo template logic</li>
+                <li>✅ Category-based template organization</li>
+                <li>✅ Ready for Render.com deployment</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
+
