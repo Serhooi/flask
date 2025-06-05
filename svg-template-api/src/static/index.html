@@ -598,7 +598,9 @@
                 const response = await fetch('/api/admin/templates');
                 const data = await response.json();
                 
-                if (data.templates && data.templates.length > 0) {
+                console.log('Templates API response:', data); // Debug log
+                
+                if (data.success && data.templates && data.templates.length > 0) {
                     // Group templates by category and name prefix
                     const grouped = groupTemplatesByCarousel(data.templates);
                     
@@ -607,7 +609,8 @@
                             ${Object.entries(grouped).map(([key, templates]) => `
                                 <div class="template-card">
                                     <div class="template-preview">
-                                        ${templates.main ? '📋' : ''} ${templates.photo ? '🖼️' : ''}
+                                        ${templates.main ? `<img src="${templates.main.preview_url}" alt="Main preview" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;">` : '📋'}
+                                        ${templates.photo && !templates.main ? `<img src="${templates.photo.preview_url}" alt="Photo preview" style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;">` : ''}
                                     </div>
                                     <div class="template-info">
                                         <h4>${key}</h4>
@@ -618,19 +621,29 @@
                                         <div class="template-meta">
                                             Category: ${templates.category || 'Unknown'}
                                         </div>
+                                        <div class="template-meta">
+                                            ID: ${templates.main ? templates.main.id : templates.photo.id}
+                                        </div>
                                     </div>
                                 </div>
                             `).join('')}
                         </div>
                     `;
-                } else {
+                } else if (data.success && (!data.templates || data.templates.length === 0)) {
                     container.innerHTML = `
                         <div style="text-align: center; padding: 2rem; color: #6b7280;">
                             No templates found. Upload your first carousel template set above! 👆
                         </div>
                     `;
+                } else {
+                    container.innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: #ef4444;">
+                            API Error: ${data.error || 'Unknown error'}
+                        </div>
+                    `;
                 }
             } catch (error) {
+                console.error('Failed to load templates:', error);
                 container.innerHTML = `
                     <div style="text-align: center; padding: 2rem; color: #ef4444;">
                         Failed to load templates: ${error.message}

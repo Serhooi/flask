@@ -149,6 +149,7 @@ def get_admin_templates():
             })
         
         return jsonify({
+            "success": True,
             "templates": result,
             "total": len(result)
         })
@@ -425,4 +426,7 @@ def get_carousel_template_details(carousel_template_id):
         
     except Exception as e:
         return jsonify({"error": f"Failed to get carousel template details: {str(e)}"}), 500
+
+
+
 
