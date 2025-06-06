@@ -1,129 +1,54 @@
-# 🚀 Render.com Deployment Guide
+# Деплой на Render.com
 
-## Quick Deploy Steps
+## Исправления в этой версии
+- ✅ **Адрес переносится на 3 строки** - исправлено в базе данных
+- ✅ **Headshot заполняет круг** без растягивания (object-fit: cover)
+- ✅ **Убраны артефакты** Photo Template
+- ✅ **Логотип сохраняет пропорции**
 
-### 1. Prepare GitHub Repository
+## Шаги для деплоя
 
+### 1. Обновите репозиторий
 ```bash
-# Create new repository on GitHub
-# Upload these files to repository root:
-├── src/
-│   ├── main.py
-│   ├── complete_svg_processor.py
-│   ├── database_init.py
-│   ├── models/
-│   ├── routes/
-│   └── static/
-├── requirements.txt
-└── README.md
+# Скопируйте файлы в ваш репозиторий flask/svg-template-api
+cp app.py /path/to/your/flask/svg-template-api/
+cp templates.db /path/to/your/flask/svg-template-api/
+cp requirements.txt /path/to/your/flask/svg-template-api/
+
+# Коммит изменений
+git add .
+git commit -m "Fix: address wrapping, headshot cropping, photo template artifacts"
+git push origin main
 ```
 
-### 2. Create Render Service
+### 2. Настройте Render.com
+1. Зайдите на https://render.com
+2. Подключите ваш GitHub репозиторий `flask/svg-template-api`
+3. Выберите "Web Service"
+4. Настройки:
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `python app.py`
+   - **Environment**: Python 3.11
 
-1. Go to [render.com](https://render.com)
-2. Sign up/Login with GitHub
-3. Click **"New"** → **"Web Service"**
-4. Select your repository
+### 3. Переменные окружения
+Добавьте в Render.com:
+- `PYTHON_VERSION`: `3.11.0`
 
-### 3. Configure Service
-
-**Basic Settings:**
-- **Name:** `svg-template-api`
-- **Language:** `Python 3`
-- **Branch:** `main`
-- **Root Directory:** (leave empty)
-
-**Build & Deploy:**
-- **Build Command:** `pip install -r requirements.txt`
-- **Start Command:** `python src/main.py`
-
-**Instance:**
-- **Instance Type:** `Free` (for testing) or `Starter` (for production)
-
-### 4. Environment Variables
-
-Click **"Advanced"** and add:
-
-```
-FLASK_ENV=production
-PORT=5000
+### 4. Обновите URL в React приложении
+Замените URL API на новый от Render:
+```typescript
+const API_BASE_URL = 'https://your-app-name.onrender.com';
 ```
 
-### 5. Deploy
+## API Endpoints
+- `GET /api/templates` - список шаблонов
+- `POST /api/carousel` - создать карусель
+- `POST /api/carousel/{id}/generate` - запустить генерацию
+- `GET /api/carousel/{id}/slides` - получить результат
+- `GET /health` - проверка здоровья
 
-1. Click **"Create Web Service"**
-2. Wait for build to complete (5-10 minutes)
-3. Your API will be available at: `https://your-service-name.onrender.com`
-
-## 🔧 Post-Deployment
-
-### Test Your API
-
-```bash
-# Health check
-curl https://your-service-name.onrender.com/api/health
-
-# Get templates
-curl https://your-service-name.onrender.com/api/templates/flyers
-```
-
-### Access Admin Panel
-
-1. Go to: `https://your-service-name.onrender.com`
-2. Click **"Admin Panel"** tab
-3. Upload your SVG templates
-4. Test carousel creation
-
-## 🎯 Integration with Your React App
-
-Update your React app to use the new API:
-
-```javascript
-const API_BASE = 'https://your-service-name.onrender.com/api';
-
-// Get templates
-const templates = await fetch(`${API_BASE}/templates/flyers`);
-
-// Create carousel
-const carousel = await fetch(`${API_BASE}/carousel`, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': 'Bearer your-token'
-  },
-  body: JSON.stringify(carouselData)
-});
-```
-
-## 🚨 Troubleshooting
-
-### Build Fails
-- Check `requirements.txt` is in repository root
-- Verify Python version compatibility
-- Check for syntax errors in code
-
-### Service Won't Start
-- Verify `python src/main.py` command
-- Check environment variables
-- Review build logs in Render dashboard
-
-### Database Issues
-- Database auto-initializes on first run
-- Check file permissions
-- Verify SQLite is working
-
-### API Not Responding
-- Check service status in Render dashboard
-- Verify CORS settings
-- Test with curl commands
-
-## 🎊 Success!
-
-Your SVG Template API is now live and ready for production use!
-
-**Next Steps:**
-1. Upload your SVG templates via admin panel
-2. Test carousel creation
-3. Integrate with your React application
-4. Monitor performance and usage
-
+## Тестирование
+После деплоя проверьте:
+1. `GET /health` - должен вернуть `{"status": "healthy", "version": "1.1.0-fixed"}`
+2. `GET /api/templates` - должен вернуть список шаблонов
+3. Создайте тестовую карусель и проверьте что адрес переносится на 3 строки
