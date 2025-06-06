@@ -311,12 +311,99 @@ def get_carousel_details(carousel_id):
 def serve_slide_image(carousel_id, slide_number):
     """Serve generated slide image"""
     try:
-        # This would serve the actual generated image file
-        # For now, return a placeholder response
-        return jsonify({
-            "message": f"Slide {slide_number} for carousel {carousel_id}",
-            "note": "Image serving not implemented yet"
-        })
+        # Get slide from database
+        slides = db.get_carousel_slides(carousel_id)
+        target_slide = None
+        
+        for slide in slides:
+            if slide['slide_number'] == slide_number:
+                target_slide = slide
+                break
+        
+        if not target_slide:
+            return jsonify({"error": "Slide not found"}), 404
+        
+        if not target_slide['image_url']:
+            return jsonify({"error": "Slide not generated yet"}), 404
+        
+        # Check if image file exists
+        image_path = f"src/static/carousel_images/{carousel_id}_slide_{slide_number}.png"
+        
+        if os.path.exists(image_path):
+            return send_from_directory(
+                os.path.dirname(os.path.abspath(image_path)),
+                os.path.basename(image_path),
+                mimetype='image/png'
+            )
+        else:
+            # Generate image if it doesn't exist
+            carousel = db.get_carousel(carousel_id)
+            if not carousel:
+                return jsonify({"error": "Carousel not found"}), 404
+            
+            # Get template
+            template = db.get_template_by_id(target_slide['template_id'])
+            if not template:
+                return jsonify({"error": "Template not found"}), 404
+            
+            # Process SVG with replacements
+            replacements = json.loads(target_slide['replacements']) if target_slide['replacements'] else {}
+            
+            # Use the SVG processor to generate image
+            from src.complete_svg_processor import CompleteSVGProcessor
+            processor = CompleteSVGProcessor()
+            
+            # Process SVG content
+            processed_svg = processor.process_svg(template['svg_content'], replacements)
+            
+            # Convert to PNG
+            from src.routes.admin import generate_preview_from_svg
+            
+            # Create carousel images directory if it doesn't exist
+            os.makedirs("src/static/carousel_images", exist_ok=True)
+            
+            # Generate PNG from processed SVG
+            import cairosvg
+            from PIL import Image
+            import io
+            
+            try:
+                # Convert SVG to PNG
+                png_data = cairosvg.svg2png(bytestring=processed_svg.encode('utf-8'))
+                
+                # Save to file
+                with open(image_path, 'wb') as f:
+                    f.write(png_data)
+                
+                # Return the image
+                return send_from_directory(
+                    os.path.dirname(os.path.abspath(image_path)),
+                    os.path.basename(image_path),
+                    mimetype='image/png'
+                )
+                
+            except Exception as svg_error:
+                # Fallback: create a simple placeholder image
+                from PIL import Image, ImageDraw, ImageFont
+                
+                img = Image.new('RGB', (800, 600), color='white')
+                draw = ImageDraw.Draw(img)
+                
+                try:
+                    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 24)
+                except:
+                    font = ImageFont.load_default()
+                
+                text = f"Slide {slide_number}\nCarousel: {carousel_id}\nGeneration Error"
+                draw.text((50, 250), text, fill='black', font=font)
+                
+                img.save(image_path)
+                
+                return send_from_directory(
+                    os.path.dirname(os.path.abspath(image_path)),
+                    os.path.basename(image_path),
+                    mimetype='image/png'
+                )
         
     except Exception as e:
         return jsonify({"error": f"Failed to serve image: {str(e)}"}), 500
