@@ -1,77 +1,49 @@
-# 🎨 SVG Template API - Complete System
+# 🚀 SVG Template API - Render.com Update
 
-## 🚀 Features
-- ✅ **Template Previews** - Generate previews for all templates
-- ✅ **Address Line Wrapping** - Automatically splits address into 3 lines
-- ✅ **Perfect Headshot Cropping** - Object-fit: cover effect for circular containers
-- ✅ **Logo Aspect Ratio** - Maintains proportions without stretching
-- ✅ **Clean Photo Templates** - Removed artifacts and unwanted elements
+## 📦 Что в этом пакете:
+- ✅ **app.py** - полная версия API с всеми endpoints
+- ✅ **templates.db** - база данных с исправленными шаблонами  
+- ✅ **requirements.txt** - все зависимости
+- ✅ **Procfile** - конфигурация для Render.com
+- ✅ **render.yaml** - настройки деплоя
 
-## 📋 API Endpoints
+## 🔄 Как обновить Render.com:
 
-### Templates
-- `GET /api/templates/all-previews` - Get all templates with preview images
-- `GET /api/templates/{id}/preview` - Generate preview for specific template
+### Вариант 1: Через GitHub (рекомендуется)
+1. Скопируйте все файлы в ваш репозиторий `flask/svg-template-api`
+2. Сделайте commit и push:
+   ```bash
+   git add .
+   git commit -m "Add missing API endpoints and fix templates"
+   git push origin main
+   ```
+3. Render.com автоматически подхватит изменения
 
-### Carousel Generation
-- `POST /api/carousel` - Create new carousel
-- `POST /api/carousel/{id}/generate` - Start generation
-- `GET /api/carousel/{id}/slides` - Get generated slides
+### Вариант 2: Прямой деплой
+1. Зайдите в Render.com Dashboard
+2. Найдите ваш сервис `svg-template-api`
+3. Settings → Deploy → Manual Deploy
+4. Загрузите файлы из этого пакета
 
-## 🛠️ Deployment
+## ✅ Новые endpoints:
+- `GET /health` - проверка здоровья
+- `GET /api/templates/all-previews` - все шаблоны с превью
+- `POST /api/carousel` - создать карусель
+- `POST /api/carousel/{id}/generate` - запустить генерацию
+- `GET /api/carousel/{id}/slides` - получить результат
 
-### Render.com
-1. Connect your GitHub repository
-2. Select "Web Service"
-3. Build Command: `pip install -r requirements.txt`
-4. Start Command: `python app.py`
+## 🧪 Тестирование:
+После деплоя проверьте:
+- https://your-app.onrender.com/health
+- https://your-app.onrender.com/api/templates/all-previews
 
-### Environment Variables
-- `PYTHON_VERSION`: `3.11.0`
+Должны вернуться JSON ответы без ошибок 404.
 
-## 🧪 Testing
-- Health check: `GET /health`
-- Should return: `{"status": "healthy", "version": "1.2.0-with-previews"}`
-
-## 📝 Template Data Format
-
-### Main Template
-```json
-{
-  "templateId": "main-template",
-  "replacements": {
-    "dyno.date": "AUGUST 15 2028",
-    "dyno.time": "6PM - 10PM",
-    "dyno.propertyaddress": "789 Paradise Estate Boulevard, Beverly Hills, CA 90210",
-    "dyno.price": "$28,500,000",
-    "dyno.bedrooms": "11",
-    "dyno.bathrooms": "15",
-    "dyno.propertyfeatures": "infinity pool, wine cellar, home theater",
-    "dyno.name": "Victoria Sterling",
-    "dyno.phone": "+1 555 888 9999",
-    "dyno.email": "victoria.sterling@luxuryrealty.com",
-    "dyno.propertyimage": "https://example.com/property.jpg",
-    "dyno.logo": "https://example.com/logo.png",
-    "dyno.agentheadshot": "https://example.com/agent.jpg"
-  }
-}
-```
-
-### Photo Template
-```json
-{
-  "templateId": "photo-template",
-  "replacements": {
-    "dyno.propertyimage": "https://example.com/interior.jpg"
-  }
-}
-```
-
-## 🎯 Fixed Issues
-- ✅ Address now properly wraps to 3 lines
-- ✅ Headshot fills circular container without distortion
-- ✅ Logo maintains aspect ratio
-- ✅ Photo template artifacts removed
-- ✅ Template previews work correctly
+## 🎯 Результат:
+После обновления ваше React приложение сможет:
+- ✅ Загружать шаблоны с превью
+- ✅ Создавать карусели
+- ✅ Генерировать слайды
+- ✅ Получать результаты генерации
 
 Built with Flask, Pillow, and CairoSVG 🚀
