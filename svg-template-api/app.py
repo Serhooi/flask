@@ -1,183 +1,128 @@
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
+from flask import Flask, render_template, request, redirect, url_for, flash
 import sqlite3
-import json
 import os
-import uuid
-import base64
-from io import BytesIO
-from PIL import Image
-import cairosvg
-import re
 import requests
-from urllib.parse import urlparse
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
-CORS(app)
+app.secret_key = 'your-secret-key-here'
 
-# Создаем директорию для статических файлов
-os.makedirs('static', exist_ok=True)
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'svg'}
+API_SERVER_URL = 'https://svg-template-api-server.onrender.com'
 
-def get_db_connection():
-    """Получить соединение с базой данных"""
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def init_database():
     conn = sqlite3.connect('templates.db')
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def init_db():
-    """Инициализация базы данных"""
-    conn = get_db_connection()
-    
-    # Создаем таблицу шаблонов если не существует
-    conn.execute("""
+    cursor = conn.cursor()
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS templates (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
-            category TEXT,
-            template_type TEXT,
-            svg_content TEXT NOT NULL
-        )
-    """)
-    
-    # Создаем таблицу каруселей
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS carousels (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            status TEXT DEFAULT 'created',
+            category TEXT NOT NULL,
+            template_type TEXT NOT NULL,
+            template_role TEXT NOT NULL,
+            svg_content TEXT NOT NULL,
+            filename TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    
-    # Создаем таблицу слайдов
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS slides (
-            id TEXT PRIMARY KEY,
-            carousel_id TEXT,
-            template_id TEXT,
-            replacements TEXT,
-            image_path TEXT,
-            FOREIGN KEY (carousel_id) REFERENCES carousels (id)
-        )
-    """)
-    
     conn.commit()
     conn.close()
 
-@app.route('/health', methods=['GET'])
-def health_check():
-    """Проверка здоровья API"""
-    return jsonify({
-        'status': 'healthy',
-        'version': '1.3.0-full-api'
-    })
-
-@app.route('/api/templates/all-previews', methods=['GET'])
-def get_all_templates_with_previews():
-    """Получить все шаблоны с превью"""
+def send_template_to_api_server(template_data):
     try:
-        conn = get_db_connection()
-        templates = conn.execute('SELECT * FROM templates').fetchall()
-        conn.close()
-        
-        result = []
-        for template in templates:
-            result.append({
-                'id': template['id'],
-                'name': template['name'],
-                'category': template['category'] or 'open-house',
-                'template_type': template['template_type'] or ('main' if 'main' in template['id'] else 'photo'),
-                'template_role': template['template_type'] or ('main' if 'main' in template['id'] else 'photo'),
-                'preview_url': f'/static/preview_{template["id"]}.png'
-            })
-        
-        return jsonify({'templates': result})
-        
-    except Exception as e:
-        print(f"Ошибка получения шаблонов: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/carousel', methods=['POST'])
-def create_carousel():
-    """Создать новую карусель"""
-    try:
-        data = request.get_json()
-        carousel_id = str(uuid.uuid4())
-        
-        conn = get_db_connection()
-        conn.execute(
-            'INSERT INTO carousels (id, name) VALUES (?, ?)',
-            (carousel_id, data.get('name', 'Untitled Carousel'))
+        response = requests.post(
+            f'{API_SERVER_URL}/api/templates/upload',
+            json=template_data,
+            headers={'Content-Type': 'application/json'},
+            timeout=30
         )
         
-        # Сохраняем слайды
-        for i, slide in enumerate(data.get('slides', [])):
-            slide_id = str(uuid.uuid4())
-            conn.execute(
-                'INSERT INTO slides (id, carousel_id, template_id, replacements) VALUES (?, ?, ?, ?)',
-                (slide_id, carousel_id, slide['templateId'], json.dumps(slide['replacements']))
-            )
-        
-        conn.commit()
-        conn.close()
-        
-        return jsonify({
-            'carousel_id': carousel_id,
-            'status': 'created'
-        })
-        
-    except Exception as e:
-        print(f"Ошибка создания карусели: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/carousel/<carousel_id>/generate', methods=['POST'])
-def generate_carousel(carousel_id):
-    """Запустить генерацию карусели"""
-    try:
-        return jsonify({
-            'status': 'completed',
-            'carousel_id': carousel_id,
-            'message': 'Generation completed successfully'
-        })
-        
-    except Exception as e:
-        print(f"Ошибка генерации карусели: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/carousel/<carousel_id>/slides', methods=['GET'])
-def get_carousel_slides(carousel_id):
-    """Получить слайды карусели"""
-    try:
-        return jsonify({
-            'carousel_id': carousel_id,
-            'name': 'Test Carousel',
-            'status': 'completed',
-            'slides': [
-                {
-                    'id': 'slide1',
-                    'template_id': 'main-template',
-                    'image_url': '/static/test_slide1.png'
-                },
-                {
-                    'id': 'slide2', 
-                    'template_id': 'photo-template',
-                    'image_url': '/static/test_slide2.png'
-                }
-            ]
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/static/<filename>')
-def serve_static(filename):
-    """Отдать статические файлы"""
-    try:
-        return send_file(os.path.join('static', filename))
+        if response.status_code == 200:
+            result = response.json()
+            return result.get('success', False)
+        return False
     except:
-        return jsonify({'error': 'File not found'}), 404
+        return False
+
+@app.route('/')
+def index():
+    conn = sqlite3.connect('templates.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM templates ORDER BY created_at DESC")
+    templates = cursor.fetchall()
+    conn.close()
+    return render_template('index.html', templates=templates)
+
+@app.route('/upload', methods=['GET', 'POST'])
+def upload_template():
+    if request.method == 'POST':
+        try:
+            template_name = request.form.get('name')
+            category = request.form.get('category')
+            template_type = request.form.get('template_type')
+            template_role = request.form.get('template_role')
+            
+            if 'file' not in request.files:
+                flash('No file selected', 'error')
+                return redirect(request.url)
+            
+            file = request.files['file']
+            if file.filename == '' or not allowed_file(file.filename):
+                flash('Invalid file', 'error')
+                return redirect(request.url)
+            
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            
+            with open(file_path, 'r', encoding='utf-8') as f:
+                svg_content = f.read()
+            
+            template_id = f"{category}-{template_role}"
+            
+            # Сохранить локально
+            conn = sqlite3.connect('templates.db')
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT OR REPLACE INTO templates 
+                (id, name, category, template_type, template_role, svg_content, filename)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (template_id, template_name, category, template_type, template_role, svg_content, filename))
+            conn.commit()
+            conn.close()
+            
+            # Отправить в API сервер
+            template_data = {
+                'id': template_id,
+                'name': template_name,
+                'category': category,
+                'template_type': template_type,
+                'template_role': template_role,
+                'svg_content': svg_content
+            }
+            
+            api_success = send_template_to_api_server(template_data)
+            
+            if api_success:
+                flash('Template uploaded and synced!', 'success')
+            else:
+                flash('Template uploaded locally, sync failed', 'warning')
+            
+            return redirect(url_for('index'))
+            
+        except Exception as e:
+            flash(f'Upload failed: {str(e)}', 'error')
+    
+    return render_template('upload.html')
 
 if __name__ == '__main__':
-    init_db()
+    init_database()
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=True)

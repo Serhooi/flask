@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Template</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; max-width: 600px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        .btn { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Upload New Template</h1>
+    
+    <form method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="name">Template Name:</label>
+            <input type="text" id="name" name="name" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="category">Category:</label>
+            <select id="category" name="category" required>
+                <option value="">Select Category</option>
+                <option value="open-house">Open House</option>
+                <option value="sold">Sold</option>
+                <option value="for-rent">For Rent</option>
+                <option value="lease">Lease</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="template_type">Template Type:</label>
+            <select id="template_type" name="template_type" required>
+                <option value="">Select Type</option>
+                <option value="flyer">Flyer</option>
+                <option value="social-post">Social Post</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="template_role">Template Role:</label>
+            <select id="template_role" name="template_role" required>
+                <option value="">Select Role</option>
+                <option value="main">Main</option>
+                <option value="photo">Photo</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="file">SVG File:</label>
+            <input type="file" id="file" name="file" accept=".svg" required>
+        </div>
+        
+        <button type="submit" class="btn">Upload Template</button>
+        <a href="{{ url_for('index') }}">Cancel</a>
+    </form>
+</body>
+</html>
